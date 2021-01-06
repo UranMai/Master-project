@@ -41,3 +41,4 @@ area of acid variable from params1.py
   PRO27A | 0.5933242506811989
 
 ### Aminoacid class (AA class)
+
