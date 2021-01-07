@@ -41,4 +41,16 @@ area of acid variable from params1.py
   PRO27A | 0.5933242506811989
 
 ### Aminoacid class (AA class)
-
+- **Desciption**\
+`__init__(self, aminoacid)`\
+Define bonds parameteres\
+`Calc_ORIGIN_NORM(self, acid)`\
+return coordinates dict of norm vectors and origin
+`def PiPi(self, res, origin_dict, vec_dict)`
+    - description
+    return name of acid and coords of acids involved in PIPI interactions (HIS, TYR, PHE, TRP)
+    - parameteres
+    
+    
+- **Parameteres**\
+mda.residues
