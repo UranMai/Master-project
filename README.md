@@ -42,15 +42,50 @@ area of acid variable from params1.py
 
 ### Aminoacid class (AA class)
 - **Desciption**\
-`__init__(self, aminoacid)`\
+`def __init__(self, aminoacid)`\
 Define bonds parameteres\
-`Calc_ORIGIN_NORM(self, acid)`\
+`def Calc_ORIGIN_NORM(self, acid)`\
 return coordinates dict of norm vectors and origin
 `def PiPi(self, res, origin_dict, vec_dict)`
+
     - description
     return name of acid and coords of acids involved in PIPI interactions (HIS, TYR, PHE, TRP)
+    check if acid is right 
     - parameteres
+    res - acid name from __init__
+    origin_dict, vec_dict - coords from def Calc_ORIGIN_NORM()
     
+`def PiCation(self, res, origin_dict, vec_dict)` 
+
+    - description
+    return name of acid and coords of acids involved in PICation interactions (HIS, TYR, PHE, TRP)
+    and cation atoms NZ, CZ of acids ARG and LYS
+    check if acid is right 
+    - parameteres
+    res - acid name from __init__
+    origin_dict, vec_dict - coords from def Calc_ORIGIN_NORM()
+    
+`def Disulf(self, res)`
+
+    - description
+    check if residues is in disulfide bonds involved
+    - return 
+    coordinates of atoms SG of CYS
+    
+`def Salt_Bridge(self, res)`
+
+    - description
+    Define basic (ARG, LYS, HIS) and acidic (ASP, GLU) acids
+    - return
+    atoms and coords of these acids
     
 - **Parameteres**\
 mda.residues
+
+### `def PIPI(res1, res2)`
+- description
+
+- parameteres 
+residue1 and residue2
+
+
