@@ -190,7 +190,7 @@ def normalAcceptorVecToPlane1(A, coords):
         normal = ''
     return normal
 
-
+# Define dictionaries for hydrogen bonds search
 hydrogen = {
 "ARG-H": "N", "ARG-HE": "NE", "ARG-HH11": "NH1", "ARG-HH12": "NH1", "ARG-HH21": "NH2", "ARG-HH22": "NH2",
 "HIS-H": "N", "HIS-HE1": "NE2",
@@ -239,7 +239,7 @@ nextAcid = {
 "HOH-O": ["H1","H2"]
 }
 
-# check if acid+atom is Acceptor or Donor 
+# check if acid+atom is Acceptor 
 def isAcceptor(atom):
     SCacceptors = ["ASN-OD1","ASP-OD1","ASP-OD2","GLN-OE1","GLU-OE1","GLU-OE2","HIS-ND1","HIS-NE2","SER-OG","THR-OG1","TYR-OH","CYS-SG","HOH-O"]
     MCacceptors = ["ARG-O","HIS-O","LYS-O","ASP-O","GLU-O","SER-O","THR-O","ASN-O","GLN-O","CYS-O","SEC-O","GLY-O","PRO-O","ALA-O","VAL-O","ILE-O","LEU-O","MET-O","PHE-O","TYR-O","TRP-O"]
@@ -247,7 +247,7 @@ def isAcceptor(atom):
         return(True)
     else:
         return(False)
-
+# check if acid+atom is Donor
 def isDonor(atom):
     SCdonors = ["ARG-NE","ARG-NH1","ARG-NH2","ASN-ND2","GLN-NE2","HIS-ND1","HIS-NE2","LYS-NZ","SER-OG","THR-OG1","TRP-NE1","TYR-OH","CYS-SG","HOH-O"]
     MCdonors = ["ARG-N","HIS-N","LYS-N","ASP-N","GLU-N","SER-N","THR-N","ASN-N","GLN-N","CYS-N","SEC-N","GLY-N","PRO-N","ALA-N","VAL-N","ILE-N","LEU-N","MET-N","PHE-N","TYR-N","TRP-N"]
