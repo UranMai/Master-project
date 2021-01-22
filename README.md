@@ -1,4 +1,6 @@
-# Run code
+https://github.com/UranMai/Master-project/wiki
+
+### Run code
 1. Find protein interactions in pdb file, (ex. 1BTL.pdb)
 ```
 python pdb_class.py file.pdb
