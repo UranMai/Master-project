@@ -5,8 +5,10 @@ python pdb_class.py file.pdb
 ```
 2. Calculate energetics and centroid scores
 ```
-
+python energetics.py file.pdb
 ```
 
-Before using code, pdb file need in preprocessing
-1. 
+Before using code, pdb file need in preprocessing.
+* Add hydrogens using **phenix.reduce**
+* Protonate water using **phenix.ready_set**
+* Make phi file using **Stride**
