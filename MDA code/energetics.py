@@ -579,4 +579,6 @@ final_out.to_csv(pdb_file+'_scoresEnergetics', sep='\t', index=False)
 outZ.to_csv(pdb_file+'_scoresEnergeticsZ', sep='\t', index=False)
 print('Write files', time.time()-t0)
 
-
+# check output with R code colSums()
+for col in final_out.columns:
+    print(col, final_out[col].sum())
