@@ -87,7 +87,7 @@ def COLLAPSE(data):
         # add to list 
         out.append([info[0], info[1], 'mixed', edgeSum, percentMC, sum(grouped_df['influence1']), sum(grouped_df['influence2']), sum(data['AA1']==''.join(grouped_df['AA1'].unique()))])
         # create other list w/o polypeptide pairs; if all bonds b/w acids are PP dont add
-        if any(grouped_df['Type2']) != "PP":
+        if all(grouped_df['Type2']!= "PP"):
                 out_noPP.append([info[0], info[1], 'mixed', edgeSum, percentMC, sum(grouped_df['influence1']), sum(grouped_df['influence2']), sum(data['AA1']==''.join(grouped_df['AA1'].unique()))])    
         completed.append(grouped_df.index.to_list())
 
@@ -103,7 +103,8 @@ def COLLAPSE(data):
     out_sub = out_subtract
     # for non terminal atoms in both acids with influence 0, change Weight value to negative
     out_sub.loc[(out_sub.influence1 == 0) & (out_sub.influence2 == 0), 'Weight'] = -out_sub['Weight']
-
+    out_sub = out_sub[out_sub['Type2']!='PP']
+    
     results = {}
     results['out'] = out_data
     results['out_noPP'] = out_noPP_data
@@ -126,6 +127,7 @@ def removeRedundancy(out):
     dataTmp = [item[0:7] for item in out]
     df = []
     for row in dataTmp:
+        # if argument sorting return 1 at 1st position
         if (np.argsort(row[0:2])[0]==1):
             row[0:2] = row[0:2][::-1]
             row[2] = 'xemi'
@@ -226,8 +228,6 @@ influencedata = pd.DataFrame(influencedata)
 
 # Read rsa file 
 rsa = pd.read_csv(pdb_file+'.rsa',header=None, sep='\t')
-
-
 # if node not in nodes of secstructure or rsa, add this node
 sec_list = []
 for node in nodes:
@@ -282,12 +282,10 @@ def calculation(net_community_vec):
     node_edge_betweenness = {}
     for node in nodes:
         node_edge_betweenness[node] = 0
-
     for i in range(len(edge_betweenness)):
         if net_community_vec[influencedata[0][i]] != net_community_vec[influencedata[1][i]]:
             node_edge_betweenness[influencedata[0][i]] = node_edge_betweenness[influencedata[0][i]] + edge_betweenness[i]
             node_edge_betweenness[influencedata[1][i]] = node_edge_betweenness[influencedata[1][i]] + edge_betweenness[i]
-
     '''
     node_intermodular degree - it's number of connecntions for nodes that are connected to nodes from other clusters
     
@@ -442,12 +440,13 @@ for num, node in enumerate(nodes):
     secondorder = list(set([i for sub in secondorder for i in sub if i!=num1]))
     secondOrderDegree_sidechain[node] = len(secondorder)
 
-node_edge_betweenness_wt = calculation(net_community_vec)[0]
-node_edge_betweenness_sidechain_wt = calculation(net_community_vec)[1]
-node_intermodular_degree_wt = calculation(net_community_vec)[2]
-node_intermodular_degree_sidechain_wt = calculation(net_community_vec)[3]
-secondOrder_node_intermodular_degree_wt = calculation(net_community_vec)[4]
-secondOrder_node_intermodular_degree_sidechain_wt = calculation(net_community_vec)[5]
+result = calculation(net_community_vec)
+node_edge_betweenness_wt = result[0]
+node_edge_betweenness_sidechain_wt = result[1]
+node_intermodular_degree_wt = result[2]
+node_intermodular_degree_sidechain_wt = result[3]
+secondOrder_node_intermodular_degree_wt = result[4]
+secondOrder_node_intermodular_degree_sidechain_wt = result[5]
 print('Calculate features for 1st net_community_vec', time.time()-t0)
 
 # Here we define new clusters from secondaryStructure file
@@ -462,12 +461,14 @@ net_community_vec = {}
 for i, j in zip(secSturcture[0].values, secSturcture[1].values):
     net_community_vec[i] = types_dict[j]
 
-node_edge_betweenness_stride = calculation(net_community_vec)[0]
-node_edge_betweenness_sidechain_stride = calculation(net_community_vec)[1]
-node_intermodular_degree_stride = calculation(net_community_vec)[2]
-node_intermodular_degree_sidechain_stride = calculation(net_community_vec)[3]
-secondOrder_node_intermodular_degree_stride = calculation(net_community_vec)[4]
-secondOrder_node_intermodular_degree_sidechain_stride = calculation(net_community_vec)[5]
+result = calculation(net_community_vec)
+
+node_edge_betweenness_stride = result[0]
+node_edge_betweenness_sidechain_stride = result[1]
+node_intermodular_degree_stride = result[2]
+node_intermodular_degree_sidechain_stride = result[3]
+secondOrder_node_intermodular_degree_stride = result[4]
+secondOrder_node_intermodular_degree_sidechain_stride = result[5]
 print('Calculate features for 2nd net_community_vec', time.time()-t0)
 
 
