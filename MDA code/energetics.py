@@ -69,7 +69,7 @@ def COLLAPSE(data):
     for key, item in subdata:
         grouped_df = subdata.get_group(key)
         edgeSum = sum(grouped_df['Weight']) # summ weight for certain 2 aminoacids
-        # info = grouped_df.to_numpy()[0] # ddelete
+        info = grouped_df.to_numpy()[0] # ddelete
         chain = grouped_df['Type1'].value_counts().to_dict() # calculate sidechain types
         MCMCcount = 0;    MCSCcount = 0
         SCMCcount = 0;    SCSCcount = 0
