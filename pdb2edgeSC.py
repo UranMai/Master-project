@@ -18,6 +18,7 @@ t0 = time.time()
 #Lys-Trp = -3.7 kCal/mol = -15.48 kJ/mol
 #Disulfide bond energy -60 kcal/mol = -251 kJ/mol
 def getResidue(line):
+    # Input line of pdb file (mostly it relates to ATOM lines) and return info of this line, in format of HIS-26A
     residuename = line[17:20];residuename=residuename.lstrip().strip()
     chainname = line[21];chainname=chainname.lstrip().strip()
     if chainname == "":
@@ -26,19 +27,23 @@ def getResidue(line):
     return(residuename+"-"+residueposition+chainname)
 
 def getXYZ(line):
+    # Input pdb line and return coordinates for each atom
     xcoord = line[30:38]; xcoord=xcoord.lstrip().strip()
     ycoord = line[38:46]; ycoord=ycoord.lstrip().strip()
     zcoord = line[46:54]; zcoord=zcoord.lstrip().strip()
     return([float(xcoord),float(ycoord),float(zcoord)])
 
 def getAtom(line):
+    # Input pdb line and return name of atom
     atomname = line[12:16]; atomname=atomname.lstrip().strip()
     return(atomname)
 
 def getBfactor(line):
+    # Input pdb line and return bfactor 
     return(line[60:66]).lstrip()
 
 def COM(residue):
+    # Input: name of residues in format HIS-26A-CA, same format in other functions, and calculate the center of mass for acids
     if residue[0:3] == "LYS":
         if not residue+"-NZ" in coords:
             return("NA")
@@ -87,9 +92,11 @@ def COM(residue):
         return("NONE")
 
 def dist3D(coord1,coord2):
+    # Return euclidean distance b/w coords of 2 atoms
     return(numpy.linalg.norm(coord1-coord2))
 
 def isPi(residue):
+    # Input: residue; check if residue is PHE, TYR or TRP for pipi interactions
     if residue[0:3]=="PHE" or residue[0:3]=="TYR":
         if residue.split("-")[2] in ["CG","CD1","CD2","CE1","CE2","CZ","OH"]:
             return(True)
@@ -104,6 +111,7 @@ def isPi(residue):
         return(False)
 
 def normalVec(residue):
+    # Calculate and return coords of normal vector to center of mass for TRP, TYR, PHE acids
     if residue[0:3]=="TRP":
         origin = COM(residue)
         a = numpy.array([coords[residue+"-CG"][0]-origin[0],coords[residue+"-CG"][1]-origin[1],coords[residue+"-CG"][2]-origin[2]])
@@ -117,12 +125,16 @@ def normalVec(residue):
     return(normalVec)
 
 def normalize(v):
+    # normalization function
     norm=numpy.linalg.norm(v)
     if norm==0:
         return v
     return v/norm
 
 def normalVecPIPI(residue):
+    # Calculate coords of origin as mean value of coords in the ring 
+    # Calculate coords of cross product of different combinations of ring atoms and take mean value, 
+    # this will be vector which perpendicular to ring plane
     x=0;y=0;z=0
     if residue[0:3]=="TRP":
         #If resolution is bad, skip
@@ -285,18 +297,21 @@ def mean(vec):
     return(float(sum(vec))/len(vec))
 
 def isH(atom):
+    # Check if it is hydrogne atom
     if "H" in atom.split("-")[2] and not "OH" in atom.split("-")[2] and not "NH" in atom.split("-")[2]:
         return(True)
     else:
         return(False)
 
 def isNeighbor(atom1,atom2):
+    # Check if 2 acids are neighbors, ex. HIS-26A and GLY-27A - neighbors, HIS-26A and GLY-28A - not neighbors
     if abs(int(atom1.split("-")[1][0:-1])-int(atom2.split("-")[1][0:-1])) == 1:
         return True
     else:
         return False
 
 def isAcceptor(atom):
+    # Check whether atoms is acceptor atoms
     SCacceptors = ["ASN-OD1","ASP-OD1","ASP-OD2","GLN-OE1","GLU-OE1","GLU-OE2","HIS-ND1","HIS-NE2","SER-OG","THR-OG1","TYR-OH","CYS-SG","HOH-O"]
     MCacceptors = ["ARG-O","HIS-O","LYS-O","ASP-O","GLU-O","SER-O","THR-O","ASN-O","GLN-O","CYS-O","SEC-O","GLY-O","PRO-O","ALA-O","VAL-O","ILE-O","LEU-O","MET-O","PHE-O","TYR-O","TRP-O"]
     if atom.split("-")[0]+"-"+atom.split("-")[2] in SCacceptors or atom.split("-")[0]+"-"+atom.split("-")[2] in MCacceptors:
@@ -305,6 +320,7 @@ def isAcceptor(atom):
         return(False)
 
 def isDonor(atom):
+    # Check whether atoms is donor atoms
     SCdonors = ["ARG-NE","ARG-NH1","ARG-NH2","ASN-ND2","GLN-NE2","HIS-ND1","HIS-NE2","LYS-NZ","SER-OG","THR-OG1","TRP-NE1","TYR-OH","CYS-SG","HOH-O"]
     MCdonors = ["ARG-N","HIS-N","LYS-N","ASP-N","GLU-N","SER-N","THR-N","ASN-N","GLN-N","CYS-N","SEC-N","GLY-N","PRO-N","ALA-N","VAL-N","ILE-N","LEU-N","MET-N","PHE-N","TYR-N","TRP-N"]
     if atom.split("-")[0]+"-"+atom.split("-")[2] in SCdonors or atom.split("-")[0]+"-"+atom.split("-")[2] in MCdonors:
@@ -334,12 +350,13 @@ def isDNA(acid):
         return(False)
 
 def SPHyb(atom):
+    # Return the type of hybidization
     atom = atom.split("-")
     if (atom[0]=="SER" and atom[2]=="OG") or (atom[0]=="THR" and atom[2]=="OG1") or (atom[0]=="CYS" and atom[2]=="SG") or (atom[0]=="LYS" and atom[2]=="NZ") or (atom[0]=="HOH" and atom[2]=="O"):
         return("SP3")
     else:
         return("SP2")
-
+# Used in search of hydrogen bonds
 hydrogen = {
 "ARG-H": "N", "ARG-HE": "NE", "ARG-HH11": "NH1", "ARG-HH12": "NH1", "ARG-HH21": "NH2", "ARG-HH22": "NH2",
 "HIS-H": "N", "HIS-HE1": "NE2",
