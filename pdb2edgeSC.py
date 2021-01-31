@@ -532,12 +532,12 @@ for line in atomicWeightFile:
 
 ##Dictionaries
 coords = {}
-residues = []
+residues = [] # define list of acid names in format HIS-26A
 residue = ""
-chain = {}
-subunits = []
-coordsvec=[]
-allatoms=[]
+chain = {} # define for each atom the chain name 
+subunits = [] # 
+coordsvec=[] # define list of all atom coordinates
+allatoms=[] # define all atom names in format HIS-26A-NA
 
 ##Bfactor
 bfactor = open(re.sub(".pdb","",sys.argv[1])+"_Bfactor",'w')
@@ -698,6 +698,8 @@ print('Found neighboringAtoms', (time.time()-t0)*1000, 'ms')
 ##ASP and GLU (OEs) can connect to ARG, HIS and LYS
 ##Only 1 connection allowed between the 2 O's and only 1 connection btwn 2 N's on ARG
 ##Hydrogen bonds should not be counted if salt bridge is presentas
+
+# Iterate in allatoms, check if itis needed acid and choose non-neighboring atoms based on distance cutoff
 print("Starting salt bridges.", (time.time()-t0)*1000, 'ms')
 saltMethod = 1
 out = open(sys.argv[1].replace(".pdb","_saltBridges_Barlow"),'w')
@@ -748,6 +750,9 @@ print('Found salt bridges', (time.time()-t0)*1000, 'ms')
 #For now, donor can only be N,O,S
 #Acceptor is N,O,S
 #Water hybridization: https://socratic.org/questions/what-is-the-hybridization-of-h2o
+# iterate through allatoms, dont include HOH and DNA, select donor, hydrogen, acceptor atoms
+# Dont include bonds that in saltbridges, find parametres of interaction (dist, angles) and Energy of hybridization
+# Write all hydrogen bonds into file
 print("Starting hydrogen bonds search", (time.time()-t0)*1000, 'ms')
 
 hydrogenBonds=[]
@@ -987,6 +992,9 @@ print(30*'-')
 # ------------------------------------------------------------------------------------------------------------------------------
 ##pipi version 2
 ##Planes from https://www.schrodinger.com/kb/1556
+# Iterate through acids involved in pi interactions (for pipi and pication)
+# Based on distance cutoff b/w ring planes and angle b/w normals select bonds
+
 print("Starting pi-pi bonds search.", (time.time()-t0)*1000, 'ms')
 pipi2=[]
 pipiDetailed2=[]
@@ -1113,8 +1121,9 @@ print(30*'-')
 
 # ------------------------------------------------------------------------------------------------------------------------------
 ##disulfide
+# Distance b/w CYS SG atoms must be less than 3A
+# Based on it find disulfide bonds
 print("Starting disulfide bonds among CYS acids", (time.time()-t0)*1000, 'ms')
-
 disulf=[]
 for atom1 in allatoms:
     if not atom1[0:3] == "CYS":
@@ -1140,6 +1149,10 @@ print(30*'-')
 # ------------------------------------------------------------------------------------------------------------------------------
 ##vanderwaals
 ##Energy.4-4
+# Define vdw radii in dict
+# For loop allatoms, dont include HOH, metals, DNA
+# Find distance b/w 2 atoms, and sum of atom radii, and select sidechain non-neighboring atoms
+
 print("Define vdw radii and Starting van der waals.", (time.time()-t0)*1000, 'ms')
 
 radii={}
@@ -1147,8 +1160,7 @@ with open("allatoms_radii",'r') as surfacefile:
     for line in surfacefile:
         line = line.strip("\n").split("\t")
         radii[line[0]] = float(line[1])
-
-
+        
 vdw={}
 scores=[]
 vdw2={}
@@ -1228,7 +1240,7 @@ CYSdist = {"MN": 2.85, "FE": 2.8, "CO": 2.75, "CU": 2.65, "ZN": 2.81}
 METdist = {"FE": 3, "CU": 3.3}
 LYSdist = {"ZN": 2.8}
 
-
+# Find in allatoms atoms that interact with metal and select based on distance cutoff
 for atom1 in allatoms:
     if atom1.split("-")[0] in metals:
         metal2atom=[]
@@ -1375,6 +1387,8 @@ print('Found DNA bonds', (time.time()-t0)*1000, 'ms')
 
 
 ##Ligands
+# iterate through protein atoms and ligands, finding distance b/w them and write to file
+# replacing distance to less value try to find the less distance b/w atom and ligand
 print("Identify centroid of each ligand and find ligand bonds", time.time()-t0)
 ligandCentroids = {}
 for ligand in ligands:
@@ -1420,6 +1434,7 @@ with open(re.sub(".pdb","",sys.argv[1])+"_centroidNetSC",'w') as out:
                 out.write(re.sub("-","",residue1)+"\t"+re.sub("-","",residue2)+"\t"+"SCSC"+"\t"+"1"+"\t"+"CENTROID\t"+"CENTROID\t"+"CENTROID\t"+str(x)+"\n")
 
 # add with open file, sorted(centroid.keys) and sorted(ligands)
+# find the shortest distance b/w centroid and ligand
 with open(re.sub(".pdb","",sys.argv[1])+"_centroidNetLigand",'w') as out:
     for residue1 in sorted(centroid.keys()):
         if "HOH" in residue1:
