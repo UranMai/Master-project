@@ -6,16 +6,16 @@ import time
 t0 = time.time()
 
 linearcutoff = 1
-removeMCMC = False
-directed = False
-secondaryStructure2 = False
+# removeMCMC = False
+# directed = False
+# secondaryStructure2 = False
 sidechainMode = True 
 uniqueAtomsMode = False 
 useDNA=True
 
-uniqueAtomsUnbiased=False
-uniqueAtomsGaurav=False
-uniqueAtomsOLD=False
+# uniqueAtomsUnbiased=False
+# uniqueAtomsGaurav=False
+# uniqueAtomsOLD=False
 uniqueAtomsGauravPP = False
 
 weighted = True
@@ -30,16 +30,22 @@ pdb_file = re.sub(".pdb","",pdb) # take name of file
 
 # all processed must be in the same folder
 # read ligand file, ex. 1BTL_ligand
-ligandfile = open(pdb_file+'_ligand', 'r')
+ligand_file = open(pdb_file+'_ligand', 'r')
+ligand_list = []
+for line in ligand_file:
+    ligand_list.append(line)
+if len(ligand_list) != 0:
+    liganddat = pd.read_csv(pdb_file+'_ligand', sep='\t', header=None)
+    ligandmode = True
 # ligands = []
 # for line in ligands:
 #     ligands.append(line)
 
 # if there are ligand, ligandmode=true
-if len(ligandfile.readlines()) != 0:
-    ligandmode = True
-else:
-    ligandmode = False
+# if len(ligandfile.readlines()) != 0:
+#     ligandmode = True
+# else:
+#     ligandmode = False
 
 terminalAtoms = {}
 # if uniqueAtomsOLD:
@@ -48,7 +54,8 @@ terminalAtoms = {}
 #             line = line.strip("\n").split()
 #             terminalAtoms[line[0]] = [x.strip(',') for x in line[1:]]
 # else:
-with open('uniqueAtoms', 'r') as uniqueAtomFile:
+# In folder must be this file or can create dict here?
+with open('uniqueAtoms with tab', 'r') as uniqueAtomFile:
     for line in uniqueAtomFile:
         line= line.strip('\n').split()
         terminalAtoms[line[0]] = [x.strip(',') for x in line[1:]]
@@ -705,13 +712,16 @@ for node in zeroNodes:
     # rsa[rsa[0] == node][1]
     out.loc[out['AA']==node, 'RSA'] = rsa[rsa[0] == node][1].values[0]  
     # NEED OR NOT
-    # out.loc[out['AA']==node, 'Ligand'] = ligandvec[ligandvec[0] == node][1].values[0] 
+    out.loc[out['AA']==node, 'Ligand'] = ligandvec[ligandvec[0] == node][1].values[0] 
 
 # fill None values with zero and add 1 to all rows
 out = out.fillna(value=0)
 out.loc[out['Ligand'] == 0, 'Ligand'] = 150
 out3 = out[out.columns[2:]]+1
 final_out = pd.concat([out[['AA', 'RSA']], out3], axis=1)
+# For checking sum weight with R code
+for col in final_out.columns:
+    print(col, final_out[col].sum())
 
 final_out1 = final_out.copy()
 
