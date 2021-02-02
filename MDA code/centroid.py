@@ -9,8 +9,8 @@ linearcutoff = 1
 # removeMCMC = False
 directed = False
 # secondaryStructure2 = False
-sidechainMode = True 
-uniqueAtomsMode = False 
+sidechainMode = True #build network of just SCSC, SCMC and MCSC. Still use unique atoms for the _uniqueAtoms directed plots
+uniqueAtomsMode = False #build network of just unique atoms (each edge has to have at least 1). Still use unique atoms for the _uniqueAtoms directed plots
 useDNA=True
 
 # uniqueAtomsUnbiased=False
@@ -23,9 +23,9 @@ removeWaters=True
 
 #if Centroid folder exist
 ligand_centroid_mode = True
-
+ligandmode = False
 # read file.pdb 
-pdb = sys.argv[1]
+pdb = sys.argv[1] # input file is 4eiy.pdb
 pdb_file = re.sub(".pdb","",pdb) # take name of file
 
 # all processed must be in the same folder
@@ -37,23 +37,9 @@ for line in ligand_file:
 if len(ligand_list) != 0:
     liganddat = pd.read_csv(pdb_file+'_ligand', sep='\t', header=None)
     ligandmode = True
-# ligands = []
-# for line in ligands:
-#     ligands.append(line)
 
-# if there are ligand, ligandmode=true
-# if len(ligandfile.readlines()) != 0:
-#     ligandmode = True
-# else:
-#     ligandmode = False
 
 terminalAtoms = {}
-# if uniqueAtomsOLD:
-#     with open('terminalAtoms', 'r') as terminalAtomFile:
-#         for line in terminalAtomFile:
-#             line = line.strip("\n").split()
-#             terminalAtoms[line[0]] = [x.strip(',') for x in line[1:]]
-# else:
 # In folder must be this file or can create dict here?
 with open('uniqueAtoms with tab', 'r') as uniqueAtomFile:
     for line in uniqueAtomFile:
@@ -98,11 +84,12 @@ rsa = rsa.append(pd.DataFrame(row_list))
 
 print('Read files and define dicts', time.time()-t0)
 
-def addTerminalDetails(data, largedata):
+def addTerminalDetails(data): #largedata
     '''
     @descirption
     For observing reverse interactions, create data where sidechains, acids, atoms are replaced, and concat data
     Add 2 columns to data, whether acids' atom in terminalAtoms (1) or not (0)
+    !!! largedata input isnot used so remove it 
     '''
     # concat to data taking into account the opposite connection
     replaced_data = data.replace({'MCSC':'SCMC', 'SCMC':'MCSC'})
@@ -126,51 +113,20 @@ def addTerminalDetails(data, largedata):
         if (row[4] == 'PICATION' or row[4] == 'PIPI'): 
             code1 = 1
             code2 = 1
-        if row[4] == 'PP':
-            if uniqueAtomsGaurav:
-                if acid1 == 'GLY':
-                    code1=1
-                    row[2] = 'SCSC'
-                if acid2 == 'GLY':
-                    code2 = 1
-                    row[2] = 'SCSC'
+#         #uniqueAtomsGaurav is FALSE, so comment this part
+#         if row[4] == 'PP':
+#             if uniqueAtomsGaurav:
+#                 if acid1 == 'GLY':
+#                     code1=1
+#                     row[2] = 'SCSC'
+#                 if acid2 == 'GLY':
+#                     code2 = 1
+#                     row[2] = 'SCSC'
         codes1.append(code1)
         codes2.append(code2)
     data['influence1'] = codes1
     data['influence2'] = codes2
     return data
-
-def collapse_agnostic(data):
-    '''
-    Sort acids in data and create pairs
-    For pairs of acids select subdata, sort acids in subdata
-    replace sidechain and summarize weights
-    '''
-    new_dataframe = []
-    for row in data.values.tolist(): 
-        row[0:2] = sorted(row[0:2])
-        new_dataframe.append(row[0:2]) 
-    pairs = pd.DataFrame(new_dataframe).drop_duplicates() #extract pairs
-
-    out = []
-    # for pair of 2 acids call subdata and summarize weights
-    for i in range(len(pairs)):
-        subdat = data[((data['A1'] == pairs.values[i][0]) & (data['A2'] == pairs.values[i][1])) | ((data['A2'] == pairs.values[i][0]) & (data['A1'] == pairs.values[i][1]))]
-        subdat = subdat.iloc[:, 0:4]
-        values = subdat.values
-        for row in values:
-            if (np.argsort(row[0:2])[0] == 1):
-                row[0:2] = row[0:2][::-1]
-        df = pd.DataFrame(values)
-        df = df.replace({'SCMC':'MCSC'})
-        df = df.drop_duplicates()
-        if weighted == False:
-            out.append([df.values[0][0], df.values[0][1], 'mixed', 1])
-        else:
-            out.append([df.values[0][0], df.values[0][1], 'mixed', sum(df[3])])
-
-    output = pd.DataFrame(out)
-    return output
 
 def collapse_agnostic1(data):
     '''
@@ -212,6 +168,15 @@ def collapse_directed1(data):
             out.append([aminos[0], aminos[1], 'mixed', float(value)])
     return pd.DataFrame(out)
 
+# # if diff bw 2 aminoacid indexes > cutoff
+def condition(dataframe):
+    out = []
+    for row in dataframe.values.tolist():
+        cond = np.abs(int(row[0][3:-1]) - int(row[1][3:-1]))
+        if cond > linearcutoff:
+            out.append(row)
+    return pd.DataFrame(out)
+
 #----------------------------------------------------------------------------------------------------
 # read 'pdb_net' file, with all protein bonds
 # where AA1, AA2 - aminoacids, 
@@ -228,14 +193,14 @@ if removeWaters:
 nodes = (data_all['A1'].append(data_all['A2'])).unique();
 sets = nodes
 originalNodes = nodes #all nodes from pdb_net file
-
+# here we can delete names of cols for comforatble work
 # account all bonds with reverse connections
-data_all_reverse = data_all[['A2', 'A1', 'Type1', 'Weight', 'Type2', 'a2', 'a1']]
-data_all_reverse = data_all_reverse.rename(columns={'A2':'A1', 'A1':'A2', 'a2':'a1', 'a1':'a2'})
-data_all_original = pd.concat([data_all, data_all_reverse], axis=0, ignore_index=True)
+# data_all_reverse = data_all[['A2', 'A1', 'Type1', 'Weight', 'Type2', 'a2', 'a1']]
+# data_all_reverse = data_all_reverse.rename(columns={'A2':'A1', 'A1':'A2', 'a2':'a1', 'a1':'a2'})
+# data_all_original = pd.concat([data_all, data_all_reverse], axis=0, ignore_index=True)
 data_all = data_all[data_all['Weight']>0] # take only data with positive weights
 
-basedata = addTerminalDetails(data_all, data_all_original) 
+basedata = addTerminalDetails(data_all) 
 basedata_noPP = collapse_agnostic1(basedata[basedata['Type2']!='PP'])
 
 # Take non MainChain (MC) data
@@ -249,28 +214,19 @@ if uniqueAtomsMode:
 
 print('Define data_net', time.time()-t0)
 
-# # if diff bw 2 aminoacid indexes > cutoff
-def condition(dataframe):
-    out = []
-    for row in dataframe.values.tolist():
-        cond = np.abs(int(row[0][3:-1]) - int(row[1][3:-1]))
-        if cond > linearcutoff:
-            out.append(row)
-    return pd.DataFrame(out)
 
 influencedata = collapse_agnostic1(influencedata_detailed)
-influencedataGLY = influencedata[influencedata[0].str.contains('GLY')].append(influencedata[influencedata[0].str.contains('GLY')])
+# influencedataGLY = influencedata[influencedata[0].str.contains('GLY')].append(influencedata[influencedata[0].str.contains('GLY')])
 influencedata = condition(influencedata)
 
 
 tmp = influencedata_detailed[influencedata_detailed['influence1']==1].iloc[:,0:4]
 influencedata_directed = collapse_directed1(tmp)
-influencedata_directedGLY = influencedata_directed[influencedata_directed[0].str.contains('GLY')].append(influencedata_directed[influencedata_directed[1].str.contains('GLY')])
+# influencedata_directedGLY = influencedata_directed[influencedata_directed[0].str.contains('GLY')].append(influencedata_directed[influencedata_directed[1].str.contains('GLY')])
 influencedata_directed = condition(influencedata_directed)
 
 # CREATE NETWORK
 influencenet = igraph.Graph.TupleList(edges=influencedata[[0,1]].values.tolist(), directed=False)
-# print(influencenet.summary())
 # WEIGHTS = 1/values
 influencenet_weight = [1/item[3] for item in influencedata.values]
 
@@ -282,11 +238,11 @@ influencenet_directed_weight = [1/item[3] for item in influencedata_directed.val
 if sidechainMode:
     influencedata_detailed = sidechaindata_detailed
     influencedata = collapse_agnostic1(sidechaindata_detailed)
-    influencedataGLY = influencedata[influencedata[0].str.contains('GLY')].append(influencedata[influencedata[1].str.contains('GLY')])
+#     influencedataGLY = influencedata[influencedata[0].str.contains('GLY')].append(influencedata[influencedata[1].str.contains('GLY')])
     influencedata = condition(influencedata)
     
-    if uniqueAtomsGauravPP:
-        influencedata = influencedata.append(influencedataGLY)
+#     if uniqueAtomsGauravPP:
+#         influencedata = influencedata.append(influencedataGLY)
     influencedata = influencedata[influencedata[3] > 0]
 
     influencenet = igraph.Graph.TupleList(edges=influencedata[[0,1]].values.tolist(), directed=False)
@@ -294,10 +250,10 @@ if sidechainMode:
 
     tmp = influencedata_detailed[influencedata_detailed['influence1']==1].iloc[:,0:4]
     influencedata_directed = collapse_directed1(tmp)
-    influencedata_directedGLY = influencedata_directed[influencedata_directed[0].str.contains('GLY')].append(influencedata_directed[influencedata_directed[1].str.contains('GLY')])
+#     influencedata_directedGLY = influencedata_directed[influencedata_directed[0].str.contains('GLY')].append(influencedata_directed[influencedata_directed[1].str.contains('GLY')])
     influencedata_directed = condition(influencedata_directed)
-    if uniqueAtomsGauravPP:
-        influencedata_directed = influencedata_directed.append(influencedata_directedGLY)
+#     if uniqueAtomsGauravPP:
+#         influencedata_directed = influencedata_directed.append(influencedata_directedGLY)
     
     influencenet_directed = igraph.Graph.TupleList(edges=influencedata_directed[[1,0]].values.tolist(), directed=True)
     influencenet_directed_weight = [1/item[3] for item in influencedata_directed.values]
@@ -365,7 +321,7 @@ net_community_vec_wt = net_community_vec
 nodes = influencenet.vs['name']
 
 
-def calculation(net_community_vec):
+def calculate_graph_attrs(net_community_vec):
     '''
     @input 
     dict of {nodes:belonging cluster number}
@@ -534,13 +490,13 @@ for num, node in enumerate(nodes):
     secondOrderDegree_sidechain[node] = len(secondorder)
 
 
-a1, a2, a3, a4,a5, a6 = calculation(net_community_vec)
-node_edge_betweenness_wt = a1
-node_edge_betweenness_sidechain_wt =a2
-node_intermodular_degree_wt = a3
-node_intermodular_degree_sidechain_wt = a4
-secondOrder_node_intermodular_degree_wt = a5
-secondOrder_node_intermodular_degree_sidechain_wt = a6
+result = calculate_graph_attrs(et_community_vec)
+node_edge_betweenness_wt = result[0]
+node_edge_betweenness_sidechain_wt = result[1]
+node_intermodular_degree_wt = result[2]
+node_intermodular_degree_sidechain_wt = result[3]
+secondOrder_node_intermodular_degree_wt = result[4]
+secondOrder_node_intermodular_degree_sidechain_wt = result[5]
 print('Calculate for 1st net_community_vec', time.time()-t0)
 # [sum(node_edge_betweenness_wt.values()), sum(node_edge_betweenness_sidechain_wt.values()), sum(node_intermodular_degree_wt.values()),
 #  sum(node_intermodular_degree_sidechain_wt.values()), sum(secondOrder_node_intermodular_degree_wt.values()),
@@ -560,14 +516,14 @@ for row in secStructure.values:
 
 nodes = influencenet.vs['name']
 
-b1,b2,b3,b4, b5, b6 = calculation(net_community_vec)
+result = calculate_graph_attrs(net_community_vec)
 
-node_edge_betweenness_stride = b1
-node_edge_betweenness_sidechain_stride =b2
-node_intermodular_degree_stride =b3
-node_intermodular_degree_sidechain_stride = b4
-secondOrder_node_intermodular_degree_stride = b5
-secondOrder_node_intermodular_degree_sidechain_stride = b6
+node_edge_betweenness_stride = result[0]
+node_edge_betweenness_sidechain_stride = result[1]
+node_intermodular_degree_stride = result[2]
+node_intermodular_degree_sidechain_stride = result[3]
+secondOrder_node_intermodular_degree_stride = result[4]
+secondOrder_node_intermodular_degree_sidechain_stride = result[5]
 
 print('End calc feature for 2nd net_community_vec', time.time()-t0)
 # [sum(node_edge_betweenness_stride.values()), sum(node_edge_betweenness_sidechain_stride.values()), 
@@ -740,6 +696,6 @@ outZ = Scaling(final_out)
 # outZ = pd.concat([final_out['AA'], outZ], axis=1)
 outZ = outZ.fillna(value=0)
 
-final_out1.to_csv(pdb_file+'_scoresCentroid', sep='\t', index=False)
-outZ.to_csv(pdb_file+'_scoresCentroidZ', sep='\t', index=False)
+# final_out1.to_csv(pdb_file+'_scoresCentroid', sep='\t', index=False)
+# outZ.to_csv(pdb_file+'_scoresCentroidZ', sep='\t', index=False)
 print('Write files', time.time()-t0)
