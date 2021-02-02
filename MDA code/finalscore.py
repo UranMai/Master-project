@@ -144,3 +144,9 @@ for node in allAcids:
 
 pd.DataFrame(out.items()).sort_values(by=0).to_csv('FinalSum', sep='\t', index=False, header=False)
 print('Create FinalSum', time.time()-t0)
+
+# Check results with R.sum(y) (use round())
+sum = 0 
+for i, j in out.items():
+   sum += round(j, 1) # change 1to2,3
+print(sum)
