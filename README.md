@@ -8,6 +8,7 @@ python pdb_class.py file.pdb
 2. Calculate energetics and centroid scores
 ```
 python energetics.py file.pdb
+python centroid.py file.pdb
 ```
 
 Before using code, pdb file need in preprocessing.
