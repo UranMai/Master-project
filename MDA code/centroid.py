@@ -490,7 +490,7 @@ for num, node in enumerate(nodes):
     secondOrderDegree_sidechain[node] = len(secondorder)
 
 
-result = calculate_graph_attrs(et_community_vec)
+result = calculate_graph_attrs(net_community_vec)
 node_edge_betweenness_wt = result[0]
 node_edge_betweenness_sidechain_wt = result[1]
 node_intermodular_degree_wt = result[2]
