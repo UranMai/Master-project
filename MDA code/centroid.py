@@ -7,7 +7,7 @@ t0 = time.time()
 
 linearcutoff = 1
 # removeMCMC = False
-# directed = False
+directed = False
 # secondaryStructure2 = False
 sidechainMode = True 
 uniqueAtomsMode = False 
