@@ -98,8 +98,8 @@ disulf_aa = ['CYS', 'CYS2']
 basic_salt_aa = ['ARG', 'ARGN', 'LYS', 'HIS', 'HISD', 'HISE', 'HISH', 'HIS1']
 acidic_salt_aa = ['ASP', 'ASPH', 'GLU', 'GLUH']
 
-# def normalize(a):
-#     return [a[i] / np.linalg.norm(a[i]) for i in range(len(a))]
+def normalize(a):
+    return [a[i] / np.linalg.norm(a[i]) for i in range(len(a))]
 
 
 def getTotalResidue(u, flag=True):
