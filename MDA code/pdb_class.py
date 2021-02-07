@@ -8,7 +8,7 @@ from MDAnalysis.analysis.hbonds import HydrogenBondAnalysis as hbonds
 from MDAnalysis.lib.distances import calc_bonds as MDdist3D
 import time
 import parameters as prs 
-from parameters import hydrogen_vars as hv
+# from parameters import hydrogen_vars as hv
 
 '''
     Before using this code preprocess pdb file
