@@ -168,7 +168,7 @@ def normalDonorVecToPlane1(A, coords):
         b = coords[res+a2] - coords[res+atom]
         normal = np.cross(a, b)
     else:
-        normal = ''
+        return None
     return normal
 
 def normalAcceptorVecToPlane1(A, coords):
@@ -187,7 +187,7 @@ def normalAcceptorVecToPlane1(A, coords):
         b = coords[res+a2] - coords[res+atom]
         normal = np.cross(a, b)
     else:
-        normal = ''
+        return None
     return normal
 
 # Define dictionaries for hydrogen bonds search
