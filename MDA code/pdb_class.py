@@ -2,30 +2,31 @@ import MDAnalysis as mda
 import numpy as np
 import string
 import sys, os, re, copy, math
-# from scipy.spatial import distance #3D distancey 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 import subprocess
 from MDAnalysis.analysis.hbonds import HydrogenBondAnalysis as hbonds
 from MDAnalysis.lib.distances import calc_bonds as MDdist3D
 import time
 import parameters as prs 
-# from parameters import hydrogen_vars as hv
 
 '''
-    Before using this code preprocess pdb file
+    Before need to preprocess pdb file
     1. Add hydrogens (phenix.reduce)
     2. Protonate water (phenix.ready_set)
     3. And create phi file (stride)
-    Then run this script >>> python pdb2edge_class.py file.pdb
 '''
 
 def SecondaryStructure(file1):
     '''
     @description
-     	Read pdb and phi file. Extract phi angles and secondary Structures of each acid
+     	Read pdb and phi file. Extract phi angles and secondary Structures of each acid from phi file
     @input
     	file1 - pdb file, ex. 4eiy.pdb
     @output 
-        secondary structure file, ex. 4eiy_secondaryStructure and 4iey_secondaryStructure2
+        secondary structure files, ex. 4eiy_secondaryStructure and 4iey_secondaryStructure2
     '''
     pdbfile = open(file1,'r').readlines() 
     phifile = open(re.sub(".pdb","",file1)+".phi",'r').readlines()
@@ -127,7 +128,6 @@ def SecondaryStructure(file1):
     secStructure.close()
 
     #Version 2 of secondary structure
-    # phifile = open(re.sub(".pdb","",file1)+".phi",'r').readlines()
     secStructure2 = open(file1.replace(".pdb","")+"_secondaryStructure2",'w')
     counter = 0
     prevStruct = ""
@@ -151,9 +151,9 @@ def RSA(file1):
     '''
     @description
         Read phi file. Take solvent area values from phi file and divide by max solvent area of aminoacid
-        Max solvent area taken from Rose 1985 and defined in parametres.py file
+        Max solvent area taken from Rose 1985 and defined in parametres.py
     @input
-        pdb file, ex. 4eiy.pdb
+        file1 - pdb file, ex. 4eiy.pdb
     @output 
         rsa file, ex. 4eiy_rsa 
     '''
@@ -164,11 +164,11 @@ def RSA(file1):
                 rsafile.write(line[5:8]+line[12:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n")
 
 
-class AA1:
+class AminoAcid:
     '''
     @description
-        Define parameteres for each type of bonds 
-        - origin, vec coords using def Calc_ORIGIN_NORM()
+        Define parameters of interactions for each aminoacid 
+        - parameters, like coords of atoms involved in certain interaction, normalVecs, etc.
         - pipi, pication, disulf, salt bridge bonds options
     @input
         residue object from mda.Universe.residues 
@@ -176,13 +176,13 @@ class AA1:
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
         self.res = aminoacid.resname+'-'+str(aminoacid.resid)+aminoacid.segid
-        origin, vec = self.Calc_ORIGIN_NORM(self.acid)
+        origin, vec = self.normalVecPIPI(self.acid)
         self.pipi = self.PiPi(self.acid, origin, vec)
         self.pication = self.PiCation(self.acid, origin, vec)
         self.disulf = self.Disulf(self.acid)
         self.sb = self.Salt_Bridge(self.acid)
 
-    def Calc_ORIGIN_NORM(self, acid):
+    def normalVecPIPI(self, acid):
         '''
         @description
             create dictionaries of coords of center of geometry and normals to ring planes of residues
@@ -202,7 +202,7 @@ class AA1:
                     f'resname {acid.resname} and resid {acid.resid} and name CG CD1 CD2 NE1 CE2']
         else:
             return [None, None]
-        # calculate coordinates using mda.center_of_geometry and params.calc_norm_vecs() function 
+        # calculate coordinates using mda.center_of_geometry and parameters.calc_norm_vecs() function 
         res_coms = [u.select_atoms(sel) for sel in select]
         origins = [res_com.center_of_geometry(compound='residues') for res_com in res_coms]
         vecs = [prs.calc_norm_vecs(acid, res_com, origin) for res_com, origin in zip(res_coms, origins)] 
@@ -221,11 +221,11 @@ class AA1:
     def PiPi(self, res, origin_dict, vec_dict):
         '''
         @description
-            residues involved in pipi bonding are HIS, TYR, PHE, TRP
-            return coords of their center of geometry and normals
+            residues involved in pipi bonds are HIS, TYR, PHE, TRP
+            return coords of their center of geometry and normalVecs
         @input
             - self.acid, mda.residue object
-            - origin_dict, vec_dict - def Calc_ORIGIN_NORM() output
+            - origin_dict, vec_dict - def normalVecPIPI() output
         '''
         if res.resname in prs.pication_aa:
             residue = res.resname + '-' + str(res.resid) + res.segid
@@ -239,11 +239,11 @@ class AA1:
     def PiCation(self, res, origin_dict, vec_dict):
         '''
         @description
-            residues involved in pipi bonding are HIS, TYR, PHE, TRP + cation atoms NZ, CZ of ARG, LYS
-            return coords
+            residues involved in pi bonding are HIS, TYR, PHE, TRP + cation atoms NZ, CZ of ARG, LYS
+            return coords of their center of geometry and normalVecs
         @input
             - self.res, mda.residue object
-            - origin_dict, vec_dict - def Calc_ORIGIN_NORM() output
+            - origin_dict, vec_dict - def normalVecPIPI() output
         '''
         if res.resname in prs.pication_aa:
             residue = res.resname+'-'+str(res.resid)+res.segid
@@ -296,12 +296,12 @@ def PiPi(res1, res2):
     	Find pipi interactions b/w atoms based on distance and angle cutoff
         - check if res1, res2 is not None in pipi bonding
         - for loop in res1, res2, find angle b/w normals and distance b/w centers
-        - return list of pipi bonds under condtions (defined in home page)
+        - return list of pipi bonds under conditions (defined in home page)
     @input
-        - res1, AA1(mda.residue) class 
-        - res2, AA1(mda.residue) class
+        - res1, AminoAcid(mda.residue) class 
+        - res2, AminoAcid(mda.residue) class
     @output 
-        - list of acids under conditions 
+        - list of acids 
     '''
 
     out = []
@@ -343,15 +343,15 @@ def PiCation(res1, res2):
         - for loop in res1, res2, find angle and distance b/w
         - return list of pication bonds under conditions (defined in home page)
     @input
-        - res1, AA1(mda.residue) class 
-        - res2, AA1(mda.residue) class
+        - res1, AminoAcid(mda.residue) class 
+        - res2, AminoAcid(mda.residue) class
     @return 
-        - list of acids under conditions 
+        - list of acids
     '''
     out = []
     # Delete this restriction bc return None, end) -> not workfirst return None for None values
-    if res1.pication is None or res2.pication is None:
-        return None
+#     if res1.pication is None or res2.pication is None:
+#         return None
     if len(res1.pication) == 3 and len(res2.pication) == 1:
         r1_keys, origin, norm = res1.pication
         cations = res2.pication
@@ -367,7 +367,6 @@ def PiCation(res1, res2):
             catangle = np.degrees(mda.lib.mdamath.angle(norm[i][0], catvec[0]))
             if catangle > prs.RIGHT_ANGLE: #change 90 to prs.RIGHT_ANGLE
                 catangle = prs.STRAIGHT_ANGLE-catangle
-            # change name PICAT_D to PICAT_DIST
             if MDdist3D(origin[i][0], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
                 out.append(''.join(r1_keys[i].split('-')[:-1])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+prs.PICATION_CONST+r1_keys[i].split('-')[2]+'\t'+cations.names[0]+'\n')
     return out
@@ -393,8 +392,8 @@ def SaltBridge(res1, res2):
         - pairs, distances via mda.capped_distance (dist cutoff - SALT_distance)
         - for loop in pairs, and add to list
     @input
-        - res1, AA1(mda.residue) class
-        - res2, AA1(mda.residue) class
+        - res1, AminoAcid(mda.residue) class
+        - res2, AminoAcid(mda.residue) class
     @output 
         - list of detailed salt bridges
         - list of acids for writing to file  
@@ -433,9 +432,7 @@ def SaltBridge(res1, res2):
                 saltBridgesTmp.append([''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])])
                 saltBridgesTmp.append([''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])])
         return list(set(out)), list(set(saltBridges))
-        # list(out) or list(set(out))
-    # else:
-    #     return None
+
         
 def SB_writing(file1):
     '''
@@ -459,8 +456,8 @@ def Disulfide(res1, res2):
     @description
         for atoms of CYS find disulfide bonds based on distance cutoff
     @input
-        - res1, AA1(mda.residue) class
-        - res2, AA1(mda.residue) class
+        - res1, AminoAcid(mda.residue) class
+        - res2, AminoAcid(mda.residue) class
     @return 
         string of disulfide bonds
     '''
@@ -474,8 +471,6 @@ def Disulfide(res1, res2):
     if dist < prs.DISULF_D:
         r1 = res1.res
         r2 = res2.res
-        # r1 = res1.acid.resname+'-'+str(res1.acid.resid)+res1.acid.segid
-        # r2 = res2.acid.resname+'-'+str(res2.acid.resid)+res2.acid.segid
         out = r1+'\t'+r2+prs.DISULF_CONST+'SG'+'\t'+'SG'+'\n'
         return out
 
@@ -709,12 +704,12 @@ def Calc_MetalBonds(met, AA1):
     '''
     @description
     	find metal bonds, distance b/w metal and acid atoms
-			for each acid take own distance from dictionary
+	for each acid take own distance from dictionary
     @input 
     	met - mda.select of metalls
     	AA1 - aminoacids class
-		@output
-			list of residues involved in metal bonds
+    @output
+	list of residues involved in metal bonds
     '''
     metal2atom = []
     acid = AA1.acid
@@ -752,10 +747,10 @@ def Calc_MetalBonds(met, AA1):
 def write_metalbonds(met, metal2atom):
 	'''
 	@description
-		Iterate through the list of residues and find distances b/w metal atom
+	    Iterate through the list of residues and find distances b/w metal atom
 	@input
-		met - mda.selection of metalls 
-		metal2atom - list of residues involved in metal bonds
+	    met - mda.selection of metalls 
+	    metal2atom - list of residues involved in metal bonds
 	'''
     metal = met.resname+'-'+str(met.resid)+met.segid+'-'+met.name
     metalBondsFiltered = []
@@ -846,7 +841,7 @@ def DNA_bonds(file1):
         for nucleotide, atom in DNAbindingPairs:
             out.write(nucleotide+'\t'+atom+'\t'+chain[atom]+'\n')
 
-def Ligand_bonds():
+def Ligand_bonds(file1):
     '''
 	@description
 	    iterate through protein atoms and ligands, finding distance b/w them and write to file
@@ -931,14 +926,14 @@ def Bfactor(file1):
 
 if __name__ == '__main__':
 	t0 = time.time()
-	file1 = sys.argv[1]
+	file1 = sys.argv[1] # input file.pdb
 	
 	u = mda.Universe(file1)
 	u1 = u.select_atoms('protein and not name OXT')
 
 	acids_class = [] # for each residue create class AA1 with parameters
 	for res in u1.residues:
-	    acids_class.append(AA1(res))
+	    acids_class.append(AminoAcid(res))
 	print('Finish creation of acids class', time.time() - t0)
 
 	resnames = u.atoms.resnames
@@ -1012,7 +1007,7 @@ if __name__ == '__main__':
 	DNA_bonds(file1)
 	print('Found dna bonds', time.time()-t0)
 	
-	Ligand_bonds()
+	Ligand_bonds(file1)
 	Centroids()
 	print('Found ligand and centroid bonds', time.time()-t0)
 
