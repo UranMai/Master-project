@@ -35,7 +35,13 @@ def energy_vdw(rm, r): # energy formula for vdw bonds
     E = (-.997*((rm/r)**12-2*(rm/r)**6))*4
     return E
 
-def energy_hb(d2, sphyb1, sphyb2, alpha, beta, psi): # energy for hydrogen bonds
+def energy_hb(d2, sphyb1, sphyb2, alpha, beta, psi): # energy of hybridization for hydrogen bonds
+    '''
+    d2 - distance b/w donor and acceptor
+    sphyb1 - type of donor hybridization 
+    sphyb2 - type of acceptor hybridization
+    alpha, beta, psi - parameters of hydrogen bonding
+    '''
     E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)
     if sphyb1=='SP3' and sphyb2=='SP3':
         F = ((math.cos(math.radians(alpha)))**2)*(math.cos(math.radians(beta-109.5)))**2
@@ -48,11 +54,11 @@ def energy_hb(d2, sphyb1, sphyb2, alpha, beta, psi): # energy for hydrogen bonds
     E_total = E*F       
     return E_total
 
-# max solvent surface area
+# max solvent surface area taken from Rose 1985 to calculate RSA values
 area = {'ALA': 118.1, 'ARG': 256.0, 'ASN': 165.5, 'ASP': 158.7, 'CYS': 146.1, 'GLN': 193.2,
-            'GLU': 186.2, 'GLY': 88.1, 'HIS': 202.5, 'ILE': 181.0, 'LEU': 193.1, 'LYS': 225.8,
-            'MET': 203.4, 'PHE': 222.8, 'PRO': 146.8, 'SER': 129.8, 'THR': 152.5, 'TRP': 266.3,
-            'TYR': 236.8, 'VAL': 164.5}
+        'GLU': 186.2, 'GLY': 88.1, 'HIS': 202.5, 'ILE': 181.0, 'LEU': 193.1, 'LYS': 225.8,
+        'MET': 203.4, 'PHE': 222.8, 'PRO': 146.8, 'SER': 129.8, 'THR': 152.5, 'TRP': 266.3,
+        'TYR': 236.8, 'VAL': 164.5}
 
 # hydrogen constants
 # class hydrogen_vars:
@@ -63,7 +69,12 @@ area = {'ALA': 118.1, 'ARG': 256.0, 'ASN': 165.5, 'ASP': 158.7, 'CYS': 146.1, 'G
 #         return E
 
 def calc_norm_vecs(acid, res_com, origin):
-    # Function used in calc origin, normals for pipi, pication
+    '''Function used in calc origin, normals for pipi, pication
+    acid - mda.residue object
+    res_com - mda.selection
+    origin - center of geometry
+    
+    '''
     num = res_com.n_atoms
     vec = 0
     for i in range(0, num):
@@ -106,6 +117,7 @@ def getTotalResidue(u, flag=True):
   '''
   u - Universe.select_atoms() choose backbone or atoms
   flag - use all lines in pdb if True; else set(lines)
+  Return residue names
   '''
   residues = []
   if flag == True: #HIS-26A-; HIS-26A-; etc
@@ -152,11 +164,13 @@ acceptor_dict = {'ASN' : {'OD1' : ['CG', 'CB']},
 
 
 def normalDonorVecToPlane1(A, coords):
-    # calculate coords of normal to donor acid
+    '''
+    calculate coords of normal to donor acid
+    Take as input name of Donor (A) and coord dictionary
+    '''
     res = '-'.join(A.split('-')[0:2]) + '-'
     r = A.split('-')[0]
     atom = A.split('-')[2]
-    # normal = ''
     if (r in donor_dict and atom in donor_dict[r]):
         a1, a2 =donor_dict[r][atom]
         a = coords[res+a1] - coords[res+atom]
@@ -172,7 +186,10 @@ def normalDonorVecToPlane1(A, coords):
     return normal
 
 def normalAcceptorVecToPlane1(A, coords):
-   # calculate coords of normal of acceptor acid
+    '''
+    calculate coords of normal to Acceptor acid
+    Take as input name of Acceptor (A) and coord dictionary
+    '''
     res = '-'.join(A.split('-')[0:2]) + '-'
     r = A.split('-')[0]
     atom = A.split('-')[2]
