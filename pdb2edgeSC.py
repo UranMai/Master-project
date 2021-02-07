@@ -7,7 +7,11 @@ import re
 import copy
 import string
 import time 
-
+'''
+Changes: print w brackets, string.ascii_uppercase, 
+in pipi: changes in condition of rings order
+in hb: add constraints on donor and acceptor not to be HOH
+'''
 t0 = time.time()
 #Pi-Cation Strength
 #Arg-Tyr = -2.8 kCal/mol = -11.7 kJ/mol
