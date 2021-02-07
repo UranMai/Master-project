@@ -592,10 +592,10 @@ def Hydrogen_calculation():
                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP2":
                         # for sp2-sp2 need to find angle psi b/w normals 
                         normalVecDonor = prs.normalDonorVecToPlane1(dA, coords)
-                        if normalVecDonor == '':
+                        if normalVecDonor is None: # change to avoid warning
                             continue
                         normalVecAcceptor = prs.normalAcceptorVecToPlane1(acceptor, coords)
-                        if normalVecAcceptor == '':
+                        if normalVecAcceptor is None: # change to avoid warning
                             continue
                         psi = np.degrees(mda.lib.mdamath.angle(normalVecDonor,normalVecAcceptor))
                         E = prs.energy_hb(d2, 'SP2', 'SP2', alpha, beta, psi)
