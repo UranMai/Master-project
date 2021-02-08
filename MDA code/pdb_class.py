@@ -350,8 +350,8 @@ def PiCation(res1, res2):
     '''
     out = []
     # Delete this restriction bc return None, end) -> not workfirst return None for None values
-#     if res1.pication is None or res2.pication is None:
-#         return None
+    if res1.pication is None or res2.pication is None:
+        return None
     if len(res1.pication) == 3 and len(res2.pication) == 1:
         r1_keys, origin, norm = res1.pication
         cations = res2.pication
