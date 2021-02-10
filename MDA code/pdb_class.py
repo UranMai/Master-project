@@ -319,7 +319,7 @@ def PiPi(res1, res2):
             if pipiangle > prs.RIGHT_ANGLE:
                 pipiangle = prs.STRAIGHT_ANGLE-pipiangle
             if (dist <= prs.PIPI_D1 and pipiangle<prs.PIPI_ANG1) or (dist <=prs.PIPI_D2 and prs.PIPI_ANG2 < pipiangle < prs.PIPI_ANG3):
-                out.append(''.join(r1.split(' '))+'\t'+''.join(r2.split(' '))+prs.PIPI_CONST+str(r1_key[i].split('-')[2])+'\t'+str(r2_key[j].split('-')[2])+'\n')
+                out.append(''.join(r1.split(' '))+'\t'+''.join(r2.split(' '))+'\tSCSC\t'+prs.PIPI_CONST+'\tPIPI\t'+str(r1_key[i].split('-')[2])+'\t'+str(r2_key[j].split('-')[2])+'\n')
     return out
 
 def PiPi_writing(file1):   
@@ -365,10 +365,10 @@ def PiCation(res1, res2):
         for cat in cations:
             catvec = cat.position - origin[i]
             catangle = np.degrees(mda.lib.mdamath.angle(norm[i][0], catvec[0]))
-            if catangle > prs.RIGHT_ANGLE: #change 90 to prs.RIGHT_ANGLE
+            if catangle > prs.RIGHT_ANGLE: 
                 catangle = prs.STRAIGHT_ANGLE-catangle
             if MDdist3D(origin[i][0], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
-                out.append(''.join(r1_keys[i].split('-')[:-1])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+prs.PICATION_CONST+r1_keys[i].split('-')[2]+'\t'+cations.names[0]+'\n')
+                out.append(''.join(r1_keys[i].split('-')[:-1])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC\t'+prs.PICATION_CONST+'\tPICAT\t'+r1_keys[i].split('-')[2]+'\t'+cations.names[0]+'\n')
     return out
 
 def PiCation_writing(file1):
@@ -428,7 +428,7 @@ def SaltBridge(res1, res2):
             # ARG-1034A ASP-1073A must appear once
             # out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
             if not [''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])] in saltBridgesTmp and not [''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])] in saltBridgesTmp:
-                out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
+                out.append(''.join(atom1.split('-')[0:2])+'\t'+''.join(atom2.split('-')[0:2])+'\tSCSC\t'+prs.SALT_CONST+'\tSB\t'+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
                 saltBridgesTmp.append([''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])])
                 saltBridgesTmp.append([''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])])
         return list(set(out)), list(set(saltBridges))
@@ -471,7 +471,7 @@ def Disulfide(res1, res2):
     if dist < prs.DISULF_D:
         r1 = res1.res
         r2 = res2.res
-        out = r1+'\t'+r2+prs.DISULF_CONST+'SG'+'\t'+'SG'+'\n'
+        out = r1+'\t'+r2+'\tSCSC\t'+prs.DISULF_CONST+'\tSS\t'+'SG'+'\t'+'SG'+'\n'
         return out
 
 def Disulfide_writing(file1):
@@ -768,9 +768,11 @@ def write_metalbonds(met, metal2atom):
                 if atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n' in metalBondsFiltered:
                     continue
                 if met.name in ["NA","K","FE","CU","ZN"] and prs.RIGHT_ANGLE<ang<prs.STRAIGHT_ANGLE:
-                    metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
+#                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
+					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
                 elif ang > prs.RIGHT_ANGLE:
-                    metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
+#                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
+					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
     return metalBondsFiltered
 
 def MetalBonds_calculation1():
@@ -839,7 +841,9 @@ def DNA_bonds(file1):
 
     with open(file1.replace('.pdb', '_DNA'), 'w') as out:
         for nucleotide, atom in DNAbindingPairs:
-            out.write(nucleotide+'\t'+atom+'\t'+chain[atom]+'\n')
+#             out.write(nucleotide+'\t'+atom+'\t'+chain[atom]+'\n')
+	    out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
+
 
 def Ligand_bonds(file1):
     '''
