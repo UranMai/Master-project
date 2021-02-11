@@ -842,8 +842,8 @@ def DNA_bonds(file1):
     with open(file1.replace('.pdb', '_DNA'), 'w') as out:
         for nucleotide, atom in DNAbindingPairs:
 #             out.write(nucleotide+'\t'+atom+'\t'+chain[atom]+'\n')
-	    out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
-
+	    	out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
+	
 
 def Ligand_bonds(file1):
     '''
@@ -914,8 +914,9 @@ def pdb2peptide(file1):
     with open(file1.replace(".pdb","")+"_polypeptidePairs",'w') as out:
 	    for i in range(len(total_res) - 1):
 	        if total_res[i][1] == total_res[i+1][1] - 1:
-	            out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]]) +"\tSCORE\n")        
-
+# 	            out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]]) +"\tSCORE\n")     
+				out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]])+'\tMCMC\t10\tPP\tPP1\tPP2\n')
+	
 def Bfactor(file1):
 	'''
 	@description 
@@ -926,12 +927,41 @@ def Bfactor(file1):
 	with open(file1.replace('.pdb', '_Bfactor'),'w') as bfact:
 		for atom in CA_atoms.atoms:
 		    bfact.write(atom.resname+str(atom.resid)+atom.segid+"\t"+str(atom.tempfactor)+"\n")
-
+			
+def VandWaals_awk_replacement(vdw_file): #1BTL_vdw file 
+    '''
+    It is awk replacement, here sum up energies for same connected acids, so 
+    if total energy b/w acids' atoms is negative don't include these bonds
+    '''
+    with open(vdw_file, 'r') as vdw_out:
+        lines = vdw_out.readlines()
+    s = {}
+    for line in lines:
+        bond = ':'.join(line.split(':')[0:2]) # consider direct connection
+        bond_rev = ':'.join(line.split(':')[0:2][::-1]) # consider reverse connection
+        E_value = line.split('\t')[1]
+        if bond not in s and bond_rev not in s:
+            s[bond] = float(E_value)
+        elif bond in s and bond_rev not in s:
+            s[bond] += float(E_value)
+        elif bond not in s and bond_rev in s:
+            s[bond_rev] += float(E_value)
+    # Define bonds with negative total energy
+    neg_vdw_bonds = dict((i, j) for i, j in s.items() if j <= 0)
+    # Write into new file
+    with open(vdw_file.replace('vdw', 'vdw_noRepulse'), 'w') as out:
+        for line in lines:
+            bond, E_value = line.split('\t')[0], line.split('\t')[1]
+            bond = bond.split(':')
+            if any(neg_E in line for neg_E in list(neg_vdw_bonds.keys())): # don't write neg energies
+                continue
+            else:
+                out.write(bond[0]+'\t'+bond[1]+'\t'+bond[2]+bond[3]+'\t'+E_value+'\tVDW\t'+bond[4]+'\t'+bond[5]+'\n')
 
 if __name__ == '__main__':
 	t0 = time.time()
 	file1 = sys.argv[1] # input file.pdb
-	
+	pdb = file1.replace('.pdb', '')
 	u = mda.Universe(file1)
 	u1 = u.select_atoms('protein and not name OXT')
 
@@ -1006,6 +1036,8 @@ if __name__ == '__main__':
 	print('Found Van der Waals bonds', time.time()-t0)
 
 	Hydrogen_calculation()
+	cmd = '''awk '{split($1,x,"-");split($2,y,"-");print x[1]x[2]"\t"y[1]y[2]"\t"$3"\t"$10"\tHB\t"$11"\t"$12}' '''+ pdb+'_hb' ''' | sed /HOH/d > ''' + pdb + "_hb1"
+    os.system(cmd)
 	print('Found hydrogen bonds', time.time()-t0)
 
 	DNA_bonds(file1)
@@ -1014,7 +1046,22 @@ if __name__ == '__main__':
 	Ligand_bonds(file1)
 	Centroids()
 	print('Found ligand and centroid bonds', time.time()-t0)
+	
+	pdb2peptide(file1)
 
-'''Extra notes 
+    VandWaals_awk_replacement(file1.replace('.pdb', '_vdw')) # replace input file to it, file1.replace('.pdb', '_vdw')
+    VandWaals_awk_replacement(file1.replace('.pdb', '_vdw2'))
 
+    pdb = file1.replace('.pdb', '')
+    names = ['_polypeptidePairs', '_vdw_noRepulse', '_pipi2', '_pication2', 
+			 '_disulf1', '_SaltBridges_Barlow', '_hb1', '_vdw_noRepulse2']
+	# Make os command
+    line = ''
+    for i in names:
+		line += pdb+i + ' '
+    
+    cmd = "cat "+line+"> {}_net".format(pdb)
+    os.system(cmd) # output for 1BTL is 3885
+'''
+Extra notes 
 '''
