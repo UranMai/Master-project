@@ -414,7 +414,7 @@ print('Define all functions, dicts and import modules', (time.time()-t0)*1000, '
 ##open pdb file
 pdbfile = open(sys.argv[1],'r').readlines()
 
-##open phi angle file
+##open phi angle file and extract secStructure from it
 phi = {}
 phifile = open(re.sub(".pdb","",sys.argv[1])+".phi",'r').readlines()
 secStructure = open(sys.argv[1].replace(".pdb","")+"_secondaryStructure",'w')
@@ -506,10 +506,10 @@ for i in range(len(phifile)):
 
 secStructure.close()
 
-##Calculate RSA
+##Calculate RSA, information about solvent area values extracted from PHI file and divided by max area in AAarea file
 phifile = open(re.sub(".pdb","",sys.argv[1])+".phi",'r').readlines()
 rsafile = open(re.sub(".pdb","",sys.argv[1])+".rsa",'w')
-areafile = open("AAarea",'r')
+areafile = open("AAarea",'r') 
 area = {}
 for line in areafile:
     line = line.strip().split("\t")
@@ -649,7 +649,7 @@ ligands = list(set(ligands))
 
 bfactor.close()
 subunits = list(set(subunits))
-
+# Define neigboring atoms
 neighboringAtoms = {}
 toremove = []
 for atom in allatoms:
@@ -660,7 +660,7 @@ for atom in allatoms:
         if not ("HOH-"+water+"-H1" in allatoms and "HOH-"+water+"-H2" in allatoms and "HOH-"+water+"-O" in allatoms):
             toremove.append(atom)
             continue
-    #Initialize beighboringAtoms vec
+    #Initialize neighboringAtoms vec
     neighboringAtoms[atom]=[]
 
 for atom in toremove:
@@ -701,7 +701,7 @@ print('Found neighboringAtoms', (time.time()-t0)*1000, 'ms')
 ##Kumar and Nussinov salt bridges (saltMethod = 2)
 ##ASP and GLU (OEs) can connect to ARG, HIS and LYS
 ##Only 1 connection allowed between the 2 O's and only 1 connection btwn 2 N's on ARG
-##Hydrogen bonds should not be counted if salt bridge is presentas
+##Hydrogen bonds should not be counted if salt bridge is presents
 
 # Iterate in allatoms, check if itis needed acid and choose non-neighboring atoms based on distance cutoff
 print("Starting salt bridges.", (time.time()-t0)*1000, 'ms')
@@ -711,6 +711,7 @@ saltBridges = []
 saltBridgesTmp = []
 # allSalt = open(sys.argv[1].replace(".pdb","_allSalt"),'w')
 for atom1 in allatoms:
+    # Check whether 2 atoms is sidechained and involved in salt bridge bonding
     if not atom1[0:3] in ["ASP","GLU","ARG","LYS","HIS"] or not chain[atom1] == "SC":
         continue
     for atom2 in neighboringAtoms[atom1]:
@@ -719,7 +720,7 @@ for atom1 in allatoms:
         #if we've already evaluated these two atoms, skip
         if allatoms.index(atom2) < allatoms.index(atom1):
             continue
-        if not "".join(atom1.split("-")[0:2])=="".join(atom2.split("-")[0:2]) and not isNeighbor(atom1,atom2):
+        if not "".join(atom1.split("-")[0:2])=="".join(atom2.split("-")[0:2]) and not isNeighbor(atom1,atom2): # exclude same residues and neighbors
             if (atom1[0:3] in ["ASP","GLU"] and atom2[0:3] in ["ARG","LYS","HIS"]) or (atom2[0:3] in ["ASP","GLU"] and atom1[0:3] in ["ARG","LYS","HIS"]):
                 if (("NE" in atom1.split("-")[2] or "NH" in atom1.split("-")[2] or "ND" in atom1.split("-")[2] or "NZ" in atom1.split("-")[2])  and ("OE" in atom2.split("-")[2] or "OD" in atom2.split("-")[2])) or (("NE" in atom2.split("-")[2] or "NH" in atom2.split("-")[2] or "ND" in atom2.split("-")[2] or "NZ" in atom2.split("-")[2])  and ("OE" in atom1.split("-")[2] or "OD" in atom1.split("-")[2])):
                     # allSalt.write(atom1+"\t"+atom2+"\t"+str(dist3D(coords[atom1],coords[atom2]))+"\n")
@@ -729,6 +730,7 @@ for atom1 in allatoms:
                         if not ["".join(atom1.split("-")[0:2]),"".join(atom2.split("-")[0:2])] in saltBridgesTmp and not ["".join(atom2.split("-")[0:2]),"".join(atom1.split("-")[0:2])] in saltBridgesTmp:
                             atom1tmp = atom1
                             atom2tmp = atom2
+                            # no difference b/w NH1 and NH2 atoms, etc
                             if atom1.split("-")[2]=="NH1" or atom1.split("-")[2]=="NH2":
                                 atom1tmp = atom1.split("-")[0]+"-"+atom1.split("-")[1]+"-NH1/2"
                             if atom2.split("-")[2]=="NH1" or atom2.split("-")[2]=="NH2":
@@ -754,8 +756,9 @@ print('Found salt bridges', (time.time()-t0)*1000, 'ms')
 #For now, donor can only be N,O,S
 #Acceptor is N,O,S
 #Water hybridization: https://socratic.org/questions/what-is-the-hybridization-of-h2o
-# iterate through allatoms, dont include HOH and DNA, select donor, hydrogen, acceptor atoms
-# Dont include bonds that in saltbridges, find parametres of interaction (dist, angles) and Energy of hybridization
+# Iterate through allatoms, dont include HOH and DNA, select donor, hydrogen, acceptor atoms
+# Here I add constraints on HOH which is not in original code
+# Exclude bonds that in saltbridges, find parametres of interaction (dist, angles) and Energy of hybridization
 # Write all hydrogen bonds into file
 print("Starting hydrogen bonds search", (time.time()-t0)*1000, 'ms')
 
@@ -1063,6 +1066,9 @@ print(30*'-')
 ##Pication version 2
 #http://www.pnas.org.ezp-prod1.hul.harvard.edu/content/96/17/9459.full
 #https://www.schrodinger.com/kb/1556
+# Iterate through all atoms and check if acid involved in pication bonding
+# Exclude same and neighboring acids
+# Calculate distance and angle b/w pi ring and cation atoms,then write bonds into file
 print("Running pi-cation bonds search", (time.time()-t0)*1000, 'ms')
 
 pication=[]
@@ -1244,7 +1250,7 @@ CYSdist = {"MN": 2.85, "FE": 2.8, "CO": 2.75, "CU": 2.65, "ZN": 2.81}
 METdist = {"FE": 3, "CU": 3.3}
 LYSdist = {"ZN": 2.8}
 
-# Find in allatoms atoms that interact with metal and select based on distance cutoff
+# Find in allatoms atoms that interact with metal and select based on distance cutoff defined in dict for each acid
 for atom1 in allatoms:
     if atom1.split("-")[0] in metals:
         metal2atom=[]
@@ -1358,6 +1364,9 @@ print(30*'-')
 
 ##DNA
 #Omega is set to 90
+# select in pdb file DA DG DT DC atoms, find neighboring atom2 (among them select non-DNA and water atoms)
+# look at atom2 which must be under some conditions, after find neighboring atom3 and 
+# calculate omega angle b/w nucleotide-atom3-atom2 and write it
 print("Starting DNA bonds...", (time.time()-t0)*1000, 'ms')
 DNAbindingPairs = []
 
