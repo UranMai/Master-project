@@ -521,7 +521,7 @@ for line in phifile:
             continue
         if line[5:8] in area.keys():
             rsafile.write(line[5:8]+line[12:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/area[line[5:8]])+"\n")
-
+rsafile.close()
 print('secStructure and RSA files created', (time.time()-t0)*1000, 'ms')
 
 ##Define metals
