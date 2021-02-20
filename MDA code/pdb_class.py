@@ -99,7 +99,7 @@ def SecondaryStructure(file1):
 
                 elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
                       (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or
-                      (phi_angle==prs.FULL_ANGLE and currentAngle > prs.ERO_ANGLE)):
+                      (phi_angle==prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
                     
                     if prevStruct == "TurnA":
                         secStruct="TurnB"; prevStruct = "TurnB"
@@ -161,8 +161,8 @@ def RSA(file1):
     with open(file1.replace('pdb', 'rsa'),'w') as rsafile:
         for line in phifile:
             if line[0:3] == "ASG" and line[5:8] in prs.area.keys():
-                rsafile.write(line[5:8]+line[12:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n")
-
+                rsafile.write(line[5:8]+line[11:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n")
+	# change line[12:15]
 
 class AminoAcid:
     '''
@@ -175,14 +175,16 @@ class AminoAcid:
     '''
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
+		self.resname = self.acid.resname
+		self.atoms = self.acid.atoms
         self.res = aminoacid.resname+'-'+str(aminoacid.resid)+aminoacid.segid
-        origin, vec = self.normalVecPIPI(self.acid)
-        self.pipi = self.PiPi(self.acid, origin, vec)
-        self.pication = self.PiCation(self.acid, origin, vec)
-        self.disulf = self.Disulf(self.acid)
-        self.sb = self.Salt_Bridge(self.acid)
+        self.origin, self.vec = self.normalVecPIPI()
+        self.pipi = self.PiPi()
+        self.pication = self.PiCation()
+        self.disulf = self.Disulf()
+        self.sb = self.Salt_Bridge()
 
-    def normalVecPIPI(self, acid):
+    def normalVecPIPI(self):
         '''
         @description
             create dictionaries of coords of center of geometry and normals to ring planes of residues
@@ -193,22 +195,21 @@ class AminoAcid:
         origin_dict = {} # center of geometry
         vec_dict = {} # coords of normals
         # select residues and their atoms for calculations
-        if acid.resname in ['HIS', 'HISD', 'HISE', 'HISH', 'HIS1']:
-            select = [f'resname {acid.resname} and resid {acid.resid} and name CG ND1 CD2 CE1 NE2']
-        elif acid.resname in ['TYR', 'PHE']:
-            select = [f'resname {acid.resname} and resid {acid.resid} and name CG CD1 CD2 CE1 CE2 CZ']
-        elif acid.resname in ['TRP']:
-            select = [f'resname {acid.resname} and resid {acid.resid} and name CD2 CE2 CE3 CZ2 CZ3 CH2', 
-                    f'resname {acid.resname} and resid {acid.resid} and name CG CD1 CD2 NE1 CE2']
+        if self.resname in ['HIS', 'HISD', 'HISE', 'HISH', 'HIS1']:
+            select = ['name CG ND1 CD2 CE1 NE2']
+        elif self.resname in ['TYR', 'PHE']:
+            select = ['name CG CD1 CD2 CE1 CE2 CZ']
+        elif self.resname in ['TRP']:
+            select = ['name CD2 CE2 CE3 CZ2 CZ3 CH2', 'name CG CD1 CD2 NE1 CE2']
         else:
             return [None, None]
         # calculate coordinates using mda.center_of_geometry and parameters.calc_norm_vecs() function 
-        res_coms = [u.select_atoms(sel) for sel in select]
+        res_coms = [self.atoms.select_atoms(sel) for sel in select]
         origins = [res_com.center_of_geometry(compound='residues') for res_com in res_coms]
-        vecs = [prs.calc_norm_vecs(acid, res_com, origin) for res_com, origin in zip(res_coms, origins)] 
+        vecs = [prs.calc_norm_vecs(self.acid, res_com, origin) for res_com, origin in zip(res_coms, origins)] 
 
         # TRP has hex and pent ring planes, so name them; for others - NORMAL
-        if acid.resname in ['TRP']:
+        if self.resname in ['TRP']:
             for i, name in enumerate(['-HEX', '-PENT']):
                 origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = origins[i]
                 vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = vecs[i]
@@ -218,7 +219,7 @@ class AminoAcid:
         return origin_dict, vec_dict
 
 
-    def PiPi(self, res, origin_dict, vec_dict):
+    def PiPi(self):
         '''
         @description
             residues involved in pipi bonds are HIS, TYR, PHE, TRP
@@ -227,16 +228,15 @@ class AminoAcid:
             - self.acid, mda.residue object
             - origin_dict, vec_dict - def normalVecPIPI() output
         '''
-        if res.resname in prs.pication_aa:
-            residue = res.resname + '-' + str(res.resid) + res.segid
-            res_keys = [key for key in list(origin_dict.keys())]
-            origin = [origin_dict[key] for key in res_keys]
-            norm = [vec_dict[key] for key in res_keys]
+        if self.resname in prs.pication_aa:
+            res_keys = [key for key in list(self.origin.keys())]
+            origin = [self.origin[key] for key in res_keys]
+            norm = [self.vec[key] for key in res_keys]
             return res_keys, origin, norm
         else:
             return None
 
-    def PiCation(self, res, origin_dict, vec_dict):
+    def PiCation(self):
         '''
         @description
             residues involved in pi bonding are HIS, TYR, PHE, TRP + cation atoms NZ, CZ of ARG, LYS
@@ -245,31 +245,30 @@ class AminoAcid:
             - self.res, mda.residue object
             - origin_dict, vec_dict - def normalVecPIPI() output
         '''
-        if res.resname in prs.pication_aa:
-            residue = res.resname+'-'+str(res.resid)+res.segid
-            res_keys = [key for key in list(origin_dict.keys())]
-            origin = [origin_dict[key] for key in res_keys]
-            norm = [vec_dict[key] for key in res_keys]
+        if self.resname in prs.pication_aa:
+            res_keys = [key for key in list(self.origin.keys())]
+            origin = [self.origin[key] for key in res_keys]
+            norm = [self.vec[key] for key in res_keys]
             return res_keys, origin, norm
 
-        if res.resname in prs.cation_aa:
-            cations = res.atoms.select_atoms('name NZ CZ')
+        if self.resname in prs.cation_aa:
+            cations = self.atoms.select_atoms('name NZ CZ')
             return cations
 
-    def Disulf(self, res):
+    def Disulf(self):
         '''
         @description
             for CYS return coords of S* atoms
         @input
             - self.res, mda.residue object
         '''
-        if res.resname in prs.disulf_aa:
-            coord = res.atoms.select_atoms('name SG').positions
+        if self.resname in prs.disulf_aa:
+            coord = self.atoms.select_atoms('name SG').positions
             return coord
         else:
             return None
 
-    def Salt_Bridge(self, res):
+    def Salt_Bridge(self):
         '''
         @description
             selection of basic (ARG, LYS, HIS) and acidic (ASP, GLU) residues involved in salt bridges
@@ -277,16 +276,14 @@ class AminoAcid:
         @input
             - self.res, mda.residue object
         '''
-        sel_basic = f"(resname {' '.join(i for i in prs.basic_salt_aa)}) and (name NH* NZ* NE* ND*)"
-        sel_acidic = f"(resname {' '.join(i for i in prs.acidic_salt_aa)}) and (name OE* OD*)"
-        if res.resname in prs.basic_salt_aa:
-            atoms = res.atoms.select_atoms(sel_basic)
-            coords = atoms.positions
-        elif res.resname in prs.acidic_salt_aa:
-            atoms = res.atoms.select_atoms(sel_acidic)
-            coords = atoms.positions
-        else:
-            return None
+        if self.resname in prs.basic_salt_aa:
+            select = 'name NH* NZ* NE* ND*'
+        elif self.resname in prs.acidic_salt_aa:
+            select = 'name OE* OD*'
+        else: return None
+
+        atoms = self.atoms.select_atoms(select)
+        coords = atoms.positions
         return atoms, coords
 
 
@@ -303,23 +300,24 @@ def PiPi(res1, res2):
     @output 
         - list of acids 
     '''
-
-    out = []
     if res1.pipi is None or res2.pipi is None:
         return None
     r1_key, origin1, norm1 = res1.pipi # name of res, origin and normal coords
     r2_key, origin2, norm2 = res2.pipi
-    r1 = res1.acid.resname+' '+str(res1.acid.resid)+res1.acid.segid
-    r2 = res2.acid.resname+' '+str(res2.acid.resid)+res2.acid.segid
+    acid1 = ''.join(r1_key[0].split('-')[0:2])
+    acid2 = ''.join(r2_key[0].split('-')[0:2])
+	out = []
     for i in range(len(r1_key)):
         for j in range(len(r2_key)):
             pipiangle = np.degrees(mda.lib.mdamath.angle(norm1[i][0], norm2[j][0]))
             dist = MDdist3D(origin1[i], origin2[j])
             # condition for angle and distance b/w ring planes
             if pipiangle > prs.RIGHT_ANGLE:
-                pipiangle = prs.STRAIGHT_ANGLE-pipiangle
-            if (dist <= prs.PIPI_D1 and pipiangle<prs.PIPI_ANG1) or (dist <=prs.PIPI_D2 and prs.PIPI_ANG2 < pipiangle < prs.PIPI_ANG3):
-                out.append(''.join(r1.split(' '))+'\t'+''.join(r2.split(' '))+'\tSCSC\t'+prs.PIPI_CONST+'\tPIPI\t'+str(r1_key[i].split('-')[2])+'\t'+str(r2_key[j].split('-')[2])+'\n')
+                pipiangle = prs.STRAIGHT_ANGLE - pipiangle
+            if ((dist <= prs.PIPI_D1 and pipiangle<prs.PIPI_ANG1) or 
+				(dist <=prs.PIPI_D2 and prs.PIPI_ANG2 < pipiangle < prs.PIPI_ANG3)):
+				out.append(acid1+'\t'+acid2+'\tSCSC'+prs.PIPI_CONST+'PIPI\t'+r1_key[i].split('-')[2]+'\t'+r2_key[j].split('-')[2]+'\n')
+#                 out.append(''.join(r1.split(' '))+'\t'+''.join(r2.split(' '))+'\tSCSC\t'+prs.PIPI_CONST+'\tPIPI\t'+str(r1_key[i].split('-')[2])+'\t'+str(r2_key[j].split('-')[2])+'\n')
     return out
 
 def PiPi_writing(file1):   
@@ -329,11 +327,11 @@ def PiPi_writing(file1):
     with open(file1.replace(".pdb","_pipi2"),'w') as out:
         for i in range(len(acids_class)):
             for j in range(i+1, len(acids_class)):
-                result = PiPi(acids_class[i], acids_class[j])
-                if result is not None:
+                bonds = PiPi(acids_class[i], acids_class[j])
+                if bonds:
                     # for TRP we have HEX and PENT output
-                    for res in result:
-                        out.write(res)
+                    for bond in bonds:
+                        out.write(bond)
 
 def PiCation(res1, res2):
     '''
@@ -348,7 +346,6 @@ def PiCation(res1, res2):
     @return 
         - list of acids
     '''
-    out = []
     # Delete this restriction bc return None, end) -> not workfirst return None for None values
     if res1.pication is None or res2.pication is None:
         return None
@@ -358,17 +355,17 @@ def PiCation(res1, res2):
     elif len(res1.pication) == 1 and len(res2.pication) == 3:
         r1_keys, origin, norm = res2.pication
         cations = res1.pication
-    else:
-        return None
-
+    else: return None
+	
+	out = []
     for i in range(len(r1_keys)):
         for cat in cations:
             catvec = cat.position - origin[i]
             catangle = np.degrees(mda.lib.mdamath.angle(norm[i][0], catvec[0]))
             if catangle > prs.RIGHT_ANGLE: 
-                catangle = prs.STRAIGHT_ANGLE-catangle
+                catangle = prs.STRAIGHT_ANGLE - catangle
             if MDdist3D(origin[i][0], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
-                out.append(''.join(r1_keys[i].split('-')[:-1])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC\t'+prs.PICATION_CONST+'\tPICAT\t'+r1_keys[i].split('-')[2]+'\t'+cations.names[0]+'\n')
+                out.append(''.join(r1_keys[i].split('-')[:-1])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+r1_keys[i].split('-')[2]+'\t'+cations.names[0]+'\n')
     return out
 
 def PiCation_writing(file1):
@@ -378,11 +375,11 @@ def PiCation_writing(file1):
     with open(file1.replace(".pdb","_pication2"),'w') as out:
         for i in range(len(acids_class)):
             for j in range(i+1, len(acids_class)):
-                result = PiCation(acids_class[i], acids_class[j])
-                if result is not None:
+                bonds = PiCation(acids_class[i], acids_class[j])
+                if bonds:
                     # for TRP we have HEX and PENT output
-                    for res in result:
-                        out.write(res)
+                    for bond in bonds:
+                        out.write(bond)
 
 def SaltBridge(res1, res2):
     '''
@@ -428,7 +425,7 @@ def SaltBridge(res1, res2):
             # ARG-1034A ASP-1073A must appear once
             # out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
             if not [''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])] in saltBridgesTmp and not [''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])] in saltBridgesTmp:
-                out.append(''.join(atom1.split('-')[0:2])+'\t'+''.join(atom2.split('-')[0:2])+'\tSCSC\t'+prs.SALT_CONST+'\tSB\t'+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
+                out.append(''.join(atom1.split('-')[0:2])+'\t'+''.join(atom2.split('-')[0:2])+'\tSCSC'+prs.SALT_CONST+'SB\t'+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
                 saltBridgesTmp.append([''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])])
                 saltBridgesTmp.append([''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])])
         return list(set(out)), list(set(saltBridges))
@@ -466,12 +463,12 @@ def Disulfide(res1, res2):
         return None
     else:   
         coord1, coord2 = res1.disulf, res2.disulf
-    
+    out = []
     dist = MDdist3D(coord1, coord2)
     if dist < prs.DISULF_D:
         r1 = res1.res
         r2 = res2.res
-        out = r1+'\t'+r2+'\tSCSC\t'+prs.DISULF_CONST+'\tSS\t'+'SG'+'\t'+'SG'+'\n'
+        out.append(''.join(r1.split('-'))+'\t'+''.join(r2.split('-'))+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n')
         return out
 
 def Disulfide_writing(file1):
@@ -899,24 +896,24 @@ def Centroids():
 def pdb2peptide(file1):
     '''
     @description
-    	Go through ATOM lines in pdb file and define 2 variables
-    	if acids in one chain write it else not write Write data like 
+        Compare protein residues' IDs, 
+        If IDs of [i] and [i+1] residues differs by 1, write to file
+        Changes output writing as in bash awk command
+    	# Go through ATOM lines in pdb file and define 2 variables
+    	# if acids in one chain write it else not write Write data like 
+        # Change write output as awk in bash script to _net file
     @input
-    	input pdb file, ex. 4eiy.pdb
+    	PDB file, ex. 4eiy.pdb
     @output
-    	file, ex. 4eiy_polypeptidePairs
+    	file with PP bonds, ex. 4eiy_polypeptidePairs
     ''' 
-    total_res = []
-    for res, id, seg in zip(u1.atoms.resnames, u1.atoms.resids, u1.atoms.segids):
-        out = res + str(id) + seg
-        total_res.append([res, id, seg])
-        
-    with open(file1.replace(".pdb","")+"_polypeptidePairs",'w') as out:
-	    for i in range(len(total_res) - 1):
-	        if total_res[i][1] == total_res[i+1][1] - 1:
-# 	            out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]]) +"\tSCORE\n")     
-				out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]])+'\tMCMC\t10\tPP\tPP1\tPP2\n')
-	
+	total_res = [(res, id, seg) for res, id, seg in zip(prot_resnames, prot_resids, prot_segids)] # in format (HIS, 26, A)
+    #important part is order of lines in pdb
+    with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
+        for i in range(len(total_res) - 1):
+                if total_res[i][1] == total_res[i+1][1] - 1:
+                    out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]])+'\tMCMC\t10\tPP\tPP1\tPP2\n')
+    
 def Bfactor(file1):
 	'''
 	@description 
@@ -969,7 +966,9 @@ if __name__ == '__main__':
 	for res in u1.residues:
 	    acids_class.append(AminoAcid(res))
 	print('Finish creation of acids class', time.time() - t0)
-
+	
+	protein = u1.residues
+	prot_resnames, prot_resids, prot_segids, prot_names = protein.resnames, protein.resids, protein.segids, protein.names
 	resnames = u.atoms.resnames
 	resids = u.atoms.resids
 	segids = u.atoms.segids
