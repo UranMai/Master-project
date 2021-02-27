@@ -9,6 +9,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import subprocess
 from MDAnalysis.analysis.hbonds import HydrogenBondAnalysis as hbonds
 from MDAnalysis.lib.distances import calc_bonds as MDdist3D
+import MDAnalysis.lib.mdamath as MDAmath
 import time
 import parameters as prs 
 
@@ -177,7 +178,7 @@ class AminoAcid:
         self.acid = aminoacid  # mda.residue object  
 		self.resname = self.acid.resname
 		self.atoms = self.acid.atoms
-        self.res = aminoacid.resname+'-'+str(aminoacid.resid)+aminoacid.segid
+        self.res = aminoacid.resname+':'+str(aminoacid.resid)+aminoacid.segid
         self.origin, self.vec = self.normalVecPIPI()
         self.pipi = self.PiPi()
         self.pication = self.PiCation()
@@ -202,20 +203,24 @@ class AminoAcid:
         elif self.resname in ['TRP']:
             select = ['name CD2 CE2 CE3 CZ2 CZ3 CH2', 'name CG CD1 CD2 NE1 CE2']
         else:
-            return [None, None]
+            return None, None
         # calculate coordinates using mda.center_of_geometry and parameters.calc_norm_vecs() function 
         res_coms = [self.atoms.select_atoms(sel) for sel in select]
         origins = [res_com.center_of_geometry(compound='residues') for res_com in res_coms]
-        vecs = [prs.calc_norm_vecs(self.acid, res_com, origin) for res_com, origin in zip(res_coms, origins)] 
+        vecs = [prs.calc_norm_vecs(res_com, origin) for res_com, origin in zip(res_coms, origins)] 
 
         # TRP has hex and pent ring planes, so name them; for others - NORMAL
         if self.resname in ['TRP']:
-            for i, name in enumerate(['-HEX', '-PENT']):
-                origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = origins[i]
-                vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = vecs[i]
+            for i, name in enumerate([':HEX', ':PENT']):
+				origin_dict[self.res+name] = origins[i]
+				vec_dict[self.res+name] = vecs[i]
+#                 origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = origins[i]
+#                 vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = vecs[i]
         else:
-            origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+'-NORMAL'] = origins[0]
-            vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+'-NORMAL'] = vecs[0]
+			origin_dict[self.res+':NORMAL'] = origins[0]
+			vec_dict[self.res+':NORMAL'] = vecs[0]
+#             origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+'-NORMAL'] = origins[0]
+#             vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+'-NORMAL'] = vecs[0]
         return origin_dict, vec_dict
 
 
@@ -233,8 +238,6 @@ class AminoAcid:
             origin = [self.origin[key] for key in res_keys]
             norm = [self.vec[key] for key in res_keys]
             return res_keys, origin, norm
-        else:
-            return None
 
     def PiCation(self):
         '''
@@ -265,8 +268,6 @@ class AminoAcid:
         if self.resname in prs.disulf_aa:
             coord = self.atoms.select_atoms('name SG').positions
             return coord
-        else:
-            return None
 
     def Salt_Bridge(self):
         '''
@@ -304,21 +305,20 @@ def PiPi(res1, res2):
         return None
     r1_key, origin1, norm1 = res1.pipi # name of res, origin and normal coords
     r2_key, origin2, norm2 = res2.pipi
-    acid1 = ''.join(r1_key[0].split('-')[0:2])
-    acid2 = ''.join(r2_key[0].split('-')[0:2])
+    acid1 = ''.join(r1_key[0].split(':')[0:2])
+    acid2 = ''.join(r2_key[0].split(':')[0:2])
 	out = []
     for i in range(len(r1_key)):
         for j in range(len(r2_key)):
-            pipiangle = np.degrees(mda.lib.mdamath.angle(norm1[i][0], norm2[j][0]))
+            pipiangle = np.degrees(MDAmath.angle(norm1[i][0], norm2[j][0]))
             dist = MDdist3D(origin1[i], origin2[j])
             # condition for angle and distance b/w ring planes
             if pipiangle > prs.RIGHT_ANGLE:
                 pipiangle = prs.STRAIGHT_ANGLE - pipiangle
-            if ((dist <= prs.PIPI_D1 and pipiangle<prs.PIPI_ANG1) or 
+            if ((dist <= prs.PIPI_D1 and pipiangle < prs.PIPI_ANG1) or 
 				(dist <=prs.PIPI_D2 and prs.PIPI_ANG2 < pipiangle < prs.PIPI_ANG3)):
-				out.append(acid1+'\t'+acid2+'\tSCSC'+prs.PIPI_CONST+'PIPI\t'+r1_key[i].split('-')[2]+'\t'+r2_key[j].split('-')[2]+'\n')
-#                 out.append(''.join(r1.split(' '))+'\t'+''.join(r2.split(' '))+'\tSCSC\t'+prs.PIPI_CONST+'\tPIPI\t'+str(r1_key[i].split('-')[2])+'\t'+str(r2_key[j].split('-')[2])+'\n')
-    return out
+				out.append(acid1+'\t'+acid2+'\tSCSC'+prs.PIPI_CONST+'PIPI\t'+r1_key[i].split(':')[2]+'\t'+r2_key[j].split(':')[2]+'\n')
+	return out
 
 def PiPi_writing(file1):   
     '''
@@ -328,8 +328,7 @@ def PiPi_writing(file1):
         for i in range(len(acids_class)):
             for j in range(i+1, len(acids_class)):
                 bonds = PiPi(acids_class[i], acids_class[j])
-                if bonds:
-                    # for TRP we have HEX and PENT output
+                if bonds: # for TRP we have HEX and PENT output
                     for bond in bonds:
                         out.write(bond)
 
@@ -361,11 +360,11 @@ def PiCation(res1, res2):
     for i in range(len(r1_keys)):
         for cat in cations:
             catvec = cat.position - origin[i]
-            catangle = np.degrees(mda.lib.mdamath.angle(norm[i][0], catvec[0]))
+            catangle = np.degrees(MDAmath.angle(norm[i][0], catvec[0]))
             if catangle > prs.RIGHT_ANGLE: 
                 catangle = prs.STRAIGHT_ANGLE - catangle
             if MDdist3D(origin[i][0], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
-                out.append(''.join(r1_keys[i].split('-')[:-1])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+r1_keys[i].split('-')[2]+'\t'+cations.names[0]+'\n')
+                out.append(''.join(r1_keys[i].split(':')[0:2])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+r1_keys[i].split(':')[2]+'\t'+cat.name+'\n')
     return out
 
 def PiCation_writing(file1):
@@ -907,12 +906,16 @@ def pdb2peptide(file1):
     @output
     	file with PP bonds, ex. 4eiy_polypeptidePairs
     ''' 
-	total_res = [(res, id, seg) for res, id, seg in zip(prot_resnames, prot_resids, prot_segids)] # in format (HIS, 26, A)
-    #important part is order of lines in pdb
-    with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
-        for i in range(len(total_res) - 1):
-                if total_res[i][1] == total_res[i+1][1] - 1:
-                    out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]])+'\tMCMC\t10\tPP\tPP1\tPP2\n')
+	with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
+		for i in range(u1.n_residues - 1):
+			if prot_resids[i] == prot_resids[i+1] - 1:
+        		out.write(total_res[i]+'\t'+total_res[i+1]+'\tMCMC\t10\tPP\tPP1\tPP2\n')
+#     total_res = [(res, id, seg) for res, id, seg in zip(prot_resnames, prot_resids, prot_segids)] # in format (HIS, 26, A)
+#     #important part is order of lines in pdb
+#     with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
+#         for i in range(len(total_res) - 1):
+#                 if total_res[i][1] == total_res[i+1][1] - 1:
+#                     out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]])+'\tMCMC\t10\tPP\tPP1\tPP2\n')
     
 def Bfactor(file1):
 	'''
