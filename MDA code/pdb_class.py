@@ -176,8 +176,8 @@ class AminoAcid:
     '''
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
-		self.resname = self.acid.resname
-		self.atoms = self.acid.atoms
+	self.resname = self.acid.resname
+	self.atoms = self.acid.atoms
         self.res = aminoacid.resname+':'+str(aminoacid.resid)+aminoacid.segid
         self.origin, self.vec = self.normalVecPIPI()
         self.pipi = self.PiPi()
@@ -379,7 +379,7 @@ def PiCation_writing(file1):
                     # for TRP we have HEX and PENT output
                     for bond in bonds:
                         out.write(bond)
-
+# saltBridges = [] # external call to write for hb instead of SB_writing 
 def SaltBridge(res1, res2):
     '''
     @description
@@ -403,8 +403,10 @@ def SaltBridge(res1, res2):
     else:
         atoms1, coords1 = res1.sb
         atoms2, coords2 = res2.sb
+		acid1 = res1.res
+		acid2 = res2.res
     # check basic and acidic residues
-    name1, name2 = res1.acid.resname, res2.acid.resname
+    name1, name2 = res1.resname, res2.resname
     if all(name in prs.basic_salt_aa for name in [name1, name2]) or all(name in prs.acidic_salt_aa for name in [name1, name2]):
         return None
     if np.abs(res1.acid.resid - res2.acid.resid) == 1:
@@ -415,19 +417,23 @@ def SaltBridge(res1, res2):
     if distances.size != 0:
         for k, [i, j] in enumerate(pairs):
             # use prs.rplsAtom, replace NH1 and NH2 to NH1/2, 
-            atom1 = atoms1[i].resname+'-'+str(atoms1[i].resid)+atoms1[i].segid+'-'+prs.rplcAtom(atoms1[i].name)
-            atom2 = atoms2[j].resname+'-'+str(atoms2[j].resid)+atoms2[j].segid+'-'+prs.rplcAtom(atoms2[j].name)
+			a1, a2 = atoms1[i].name, atoms2[j].name
+			
+            atom1 = acid1+':'+prs.rplcAtom(a1)
+            atom2 = acid2+':'+prs.rplcAtom(a2)
             # write atom1 & atom2 and atom2 & atom1
-            saltBridges.append(atoms1[i].resname+'-'+str(atoms1[i].resid)+atoms1[i].segid+'-'+atoms1[i].name+'\t'+atoms2[j].resname+'-'+str(atoms2[j].resid)+atoms2[j].segid+'-'+atoms2[j].name)
-            saltBridges.append(atoms2[j].resname+'-'+str(atoms2[j].resid)+atoms2[j].segid+'-'+atoms2[j].name+'\t'+atoms1[i].resname+'-'+str(atoms1[i].resid)+atoms1[i].segid+'-'+atoms1[i].name)
+            saltBridges.append(acid1+':'+a1+'\t'+acid2+':'+a2)
+            saltBridges.append(acid2+':'+a2+'\t'+acid1+':'+a1)
             # add to out list non repeating residues with same ids
             # ARG-1034A ASP-1073A must appear once
             # out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
-            if not [''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])] in saltBridgesTmp and not [''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])] in saltBridgesTmp:
-                out.append(''.join(atom1.split('-')[0:2])+'\t'+''.join(atom2.split('-')[0:2])+'\tSCSC'+prs.SALT_CONST+'SB\t'+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
-                saltBridgesTmp.append([''.join(atom1.split('-')[0:2]), ''.join(atom2.split('-')[0:2])])
-                saltBridgesTmp.append([''.join(atom2.split('-')[0:2]), ''.join(atom1.split('-')[0:2])])
-        return list(set(out)), list(set(saltBridges))
+            if (not [acid1, acid2] in saltBridgesTmp and
+				not [acid2, acid1] in saltBridgesTmp):
+                out.append(''.join(atom1.split(':')[0:2])+'\t'+''.join(atom2.split(':')[0:2])+
+                           '\tSCSC'+prs.SALT_CONST+'SB\t'+atom1.split(':')[2]+'\t'+atom2.split(':')[2]+'\n')
+                saltBridgesTmp.append([acid1, acid2])
+                saltBridgesTmp.append([acid2, acid1])
+        return list(set(out)) #, list(set(saltBridges))
 
         
 def SB_writing(file1):
@@ -438,14 +444,16 @@ def SB_writing(file1):
     with open(file1.replace(".pdb","_SaltBridges_Barlow"),'w') as out:
         for i in range(len(acids_class)):
             for j in range(i+1, len(acids_class)):
-                result = SaltBridge(acids_class[i], acids_class[j])
-                if result is not None:
+                bonds = SaltBridge(acids_class[i], acids_class[j])
+                if bonds is not None:
                     # hydrogen bonds that are in salt bridges will be deleted
-                    for res in result[1]:
-                        saltBridges.append(res)
-                    for res in result[0]:
-                        out.write(res)
-    return saltBridges
+					for bond in bonds:
+						out.write(bond)
+#                     for res in result[1]:
+#                         saltBridges.append(res)
+#                     for res in result[0]:
+#                         out.write(res)
+#     return saltBridges
 
 def Disulfide(res1, res2):
     '''
