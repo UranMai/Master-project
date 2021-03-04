@@ -13,12 +13,18 @@ import MDAnalysis.lib.mdamath as MDAmath
 import time
 import parameters as prs 
 
+# TODO: make preprocessing script + installation readme
 '''
     Before need to preprocess pdb file
     1. Add hydrogens (phenix.reduce)
     2. Protonate water (phenix.ready_set)
     3. And create phi file (stride)
 '''
+
+# TODO: specify where phifile files come from; handle case with missing files
+# TODO: there is version 2, either specify why do we need both, or comment not used version
+# TODO: refactor function names in common ways, e.g. prepare_secondary_structure_file(...) and prepare_rsa_file(...)
+# TODO: why do we need pdb file here?
 
 def SecondaryStructure(file1):
     '''
@@ -148,6 +154,8 @@ def SecondaryStructure(file1):
 
     secStructure2.close()
 
+# TODO: add citation to Rose 1985
+# TODO: why not pass the phi file directly?
 def RSA(file1):
     '''
     @description
@@ -176,8 +184,8 @@ class AminoAcid:
     '''
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
-	self.resname = self.acid.resname
-	self.atoms = self.acid.atoms
+	    self.resname = self.acid.resname
+	    self.atoms = self.acid.atoms
         self.res = aminoacid.resname+':'+str(aminoacid.resid)+aminoacid.segid
         self.origin, self.vec = self.normalVecPIPI()
         self.pipi = self.PiPi()
@@ -196,6 +204,7 @@ class AminoAcid:
         origin_dict = {} # center of geometry
         vec_dict = {} # coords of normals
         # select residues and their atoms for calculations
+        # TODO: be consistent with other functions, e.g. self.resname in prs.pication_aa
         if self.resname in ['HIS', 'HISD', 'HISE', 'HISH', 'HIS1']:
             select = ['name CG ND1 CD2 CE1 NE2']
         elif self.resname in ['TYR', 'PHE']:
@@ -206,10 +215,12 @@ class AminoAcid:
             return None, None
         # calculate coordinates using mda.center_of_geometry and parameters.calc_norm_vecs() function 
         res_coms = [self.atoms.select_atoms(sel) for sel in select]
+        # TODO: why compound='residues'
         origins = [res_com.center_of_geometry(compound='residues') for res_com in res_coms]
         vecs = [prs.calc_norm_vecs(res_com, origin) for res_com, origin in zip(res_coms, origins)] 
 
         # TRP has hex and pent ring planes, so name them; for others - NORMAL
+        # TODO: why not HEX for others?
         if self.resname in ['TRP']:
             for i, name in enumerate([':HEX', ':PENT']):
 				origin_dict[self.res+name] = origins[i]
@@ -234,11 +245,12 @@ class AminoAcid:
             - origin_dict, vec_dict - def normalVecPIPI() output
         '''
         if self.resname in prs.pication_aa:
-            res_keys = [key for key in list(self.origin.keys())]
-            origin = [self.origin[key] for key in res_keys]
-            norm = [self.vec[key] for key in res_keys]
+            res_keys = [key for key in list(self.origin.keys())] # TODO: res_keys=list(self.origin.keys()) ???
+            origin = [self.origin[key] for key in res_keys] # TODO: origin.values???
+            norm = [self.vec[key] for key in res_keys] # TODO: vec.values???
             return res_keys, origin, norm
 
+    #TODO: type of return values should not depend on if
     def PiCation(self):
         '''
         @description
@@ -287,7 +299,8 @@ class AminoAcid:
         coords = atoms.positions
         return atoms, coords
 
-
+# TODO: avoid using the same names in function and class method
+# TODO: think about output format
 def PiPi(res1, res2):
     '''
     @description
@@ -320,6 +333,7 @@ def PiPi(res1, res2):
 				out.append(acid1+'\t'+acid2+'\tSCSC'+prs.PIPI_CONST+'PIPI\t'+r1_key[i].split(':')[2]+'\t'+r2_key[j].split(':')[2]+'\n')
 	return out
 
+# TODO: in writing functions you go though the same for loops
 def PiPi_writing(file1):   
     '''
     Write pipi interactions into file (output of def PiPi)
@@ -409,6 +423,7 @@ def SaltBridge(res1, res2):
     name1, name2 = res1.resname, res2.resname
     if all(name in prs.basic_salt_aa for name in [name1, name2]) or all(name in prs.acidic_salt_aa for name in [name1, name2]):
         return None
+    # TODO: <= prm.salt_bridge_sequential_distance_threshold
     if np.abs(res1.acid.resid - res2.acid.resid) == 1:
         return None
     # combinations of coords with distance cutoff
@@ -422,11 +437,13 @@ def SaltBridge(res1, res2):
             atom1 = acid1+':'+prs.rplcAtom(a1)
             atom2 = acid2+':'+prs.rplcAtom(a2)
             # write atom1 & atom2 and atom2 & atom1
+            # TODO: why to write both?
             saltBridges.append(acid1+':'+a1+'\t'+acid2+':'+a2)
             saltBridges.append(acid2+':'+a2+'\t'+acid1+':'+a1)
             # add to out list non repeating residues with same ids
             # ARG-1034A ASP-1073A must appear once
             # out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
+            # TODO: why do you need saltBridgesTmp?
             if (not [acid1, acid2] in saltBridgesTmp and
 				not [acid2, acid1] in saltBridgesTmp):
                 out.append(''.join(atom1.split(':')[0:2])+'\t'+''.join(atom2.split(':')[0:2])+
@@ -473,6 +490,7 @@ def Disulfide(res1, res2):
     out = []
     dist = MDdist3D(coord1, coord2)
     if dist < prs.DISULF_D:
+        # TODO: get rid of r1 and r2
         r1 = res1.res
         r2 = res2.res
         out.append(''.join(r1.split('-'))+'\t'+''.join(r2.split('-'))+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n')
@@ -501,11 +519,15 @@ def Hydrogen_calculation():
         - list of acids 
         - write file, ex. 4eiy_hb file 
     '''
+    # TODO: you call SB_writing twice. Why do you need to call it here?
+    # TODO: h should be an argument?
+    # TODO: use more clear and full namings for variables
     saltBridges = SB_writing(file1)
     hydrogenBonds = []
     acceptorBonds = {}
     for hbond in h.table:
         # here donor is hydrogen atom
+        # TODO: when doing such manipulations with str it is useful to put into comment example of the expected output
         donor = hbond[3]+'-'+str(hbond[4])+segids[hbond[1]]+'-'+hbond[5]
         acceptor = hbond[6]+'-'+str(hbond[7])+segids[hbond[2]]+'-'+hbond[8]
         dH = hbond[3]+'-'+hbond[5]
@@ -523,6 +545,7 @@ def Hydrogen_calculation():
             # '-'.join(acceptor.split('-')[::2]) in nextAcids and check isAcceptor
             if (acceptor.split("-")[0]+"-"+acceptor.split("-")[2] in prs.nextAcid) and prs.isAcceptor(acceptor):
                 d1 = hbond[9] # H-A; hydrogen-acceptor distance 
+                # TODO: move magic constants to parameters
                 if d1 > 3.5:
                     continue
                 d2 = MDdist3D(coords[dA], coords[acceptor]) # donor-acceptor distance
@@ -555,6 +578,7 @@ def Hydrogen_calculation():
                     #hydrogen[dH] - hydrogen
                     if not acceptor in acceptorBonds.keys():
                         acceptorBonds[acceptor] = []
+                    # TODO: to parameters
                     if hbond[8] in ["OD1","OD2","OE1","OE2","OG","OG1","SG"]: 
                         acceptorBonds[acceptor].append(d1)
                         if len(acceptorBonds[acceptor]) > 2:
@@ -591,6 +615,7 @@ def Hydrogen_calculation():
                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP2":
                         # for sp2-sp2 need to find angle psi b/w normals 
                         normalVecDonor = prs.normalDonorVecToPlane1(dA, coords)
+                        # TODO: handle warnings properly
                         if normalVecDonor is None: # change to avoid warning
                             continue
                         normalVecAcceptor = prs.normalAcceptorVecToPlane1(acceptor, coords)
@@ -682,6 +707,8 @@ def VdW_calculation():
                 if r - rm < .5 and not (prs.isNeighbor(elem1,elem2) and chain[elem1]=="MC" and chain[elem2]=="MC"):
                     if not  res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2 in vdw1:
                         vdw1[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2] = []
+
+                    # TODO: still magic constants...
                     E = (-.997*((rm/r)**12-2*(rm/r)**6))*4
                     # E = prs.energy_vdw(rm , r)
                     vdw1[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2].append(E)
@@ -867,6 +894,7 @@ def Ligand_bonds(file1):
                     out.write(atom.split("-")[0]+atom.split("-")[1]+"-"+atom.split("-")[2]+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
                     tmpdist0 = float(copy.copy(tmpdist1))
 
+# TODO: not clear
 def Centroids():
     '''
 	@description
@@ -899,7 +927,7 @@ def Centroids():
                 tmpdist0 = float(copy.copy(tmpdist1))   
 
 
-
+# TODO: not clear
 def pdb2peptide(file1):
     '''
     @description
@@ -924,7 +952,9 @@ def pdb2peptide(file1):
 #         for i in range(len(total_res) - 1):
 #                 if total_res[i][1] == total_res[i+1][1] - 1:
 #                     out.write(''.join([str(elem) for elem in total_res[i]]) +"\t"+''.join([str(elem) for elem in total_res[i+1]])+'\tMCMC\t10\tPP\tPP1\tPP2\n')
-    
+
+
+# TODO: not clear; should discuss the use of B-factors
 def Bfactor(file1):
 	'''
 	@description 
@@ -935,7 +965,9 @@ def Bfactor(file1):
 	with open(file1.replace('.pdb', '_Bfactor'),'w') as bfact:
 		for atom in CA_atoms.atoms:
 		    bfact.write(atom.resname+str(atom.resid)+atom.segid+"\t"+str(atom.tempfactor)+"\n")
-			
+
+
+# TODO: not clear
 def VandWaals_awk_replacement(vdw_file): #1BTL_vdw file 
     '''
     It is awk replacement, here sum up energies for same connected acids, so 
