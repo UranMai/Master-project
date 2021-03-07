@@ -1,5 +1,13 @@
 https://github.com/UranMai/Master-project/wiki
 
+### Preprocessing PDB file
+1. Install **Stride** from [here](http://webclu.bio.wzw.tum.de/stride/install.html) and copy binary file stride to `usr/local/bin`
+2. Install **Phenix** from [here](https://www.mrc-lmb.cam.ac.uk/public/xtal/doc/phenix/install-setup-run.html)
+3. Run ```bash preprocess.sh PDBfile```
+
+
+[phenix.reduce](https://www.mrc-lmb.cam.ac.uk/public/xtal/doc/phenix/reference/hydrogens.html)
+
 ### Run code
 ```
 pip install MDAnalysis
