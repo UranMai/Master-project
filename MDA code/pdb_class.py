@@ -156,7 +156,7 @@ def SecondaryStructure(file1):
 
 # TODO: add citation to Rose 1985
 # TODO: why not pass the phi file directly?
-def RSA(file1):
+def RSA(file1, phifile):
     '''
     @description
         Read phi file. Take solvent area values from phi file and divide by max solvent area of aminoacid
@@ -170,8 +170,7 @@ def RSA(file1):
     with open(file1.replace('pdb', 'rsa'),'w') as rsafile:
         for line in phifile:
             if line[0:3] == "ASG" and line[5:8] in prs.area.keys():
-                rsafile.write(line[5:8]+line[11:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n")
-	# change line[12:15]
+                rsafile.write(line[5:8]+line[11:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n") # change line[12:15]
 
 class AminoAcid:
     '''
@@ -184,8 +183,8 @@ class AminoAcid:
     '''
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
-	    self.resname = self.acid.resname
-	    self.atoms = self.acid.atoms
+	self.resname = self.acid.resname
+	self.atoms = self.acid.atoms
         self.res = aminoacid.resname+':'+str(aminoacid.resid)+aminoacid.segid
         self.origin, self.vec = self.normalVecPIPI()
         self.pipi = self.PiPi()
@@ -216,22 +215,18 @@ class AminoAcid:
         # calculate coordinates using mda.center_of_geometry and parameters.calc_norm_vecs() function 
         res_coms = [self.atoms.select_atoms(sel) for sel in select]
         # TODO: why compound='residues'
-        origins = [res_com.center_of_geometry(compound='residues') for res_com in res_coms]
+        origins = [res_com.center_of_geometry(compound='group') for res_com in res_coms]
         vecs = [prs.calc_norm_vecs(res_com, origin) for res_com, origin in zip(res_coms, origins)] 
 
         # TRP has hex and pent ring planes, so name them; for others - NORMAL
         # TODO: why not HEX for others?
         if self.resname in ['TRP']:
-            for i, name in enumerate([':HEX', ':PENT']):
-				origin_dict[self.res+name] = origins[i]
-				vec_dict[self.res+name] = vecs[i]
-#                 origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = origins[i]
-#                 vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+name] = vecs[i]
+            for i, name in enumerate([':NORMAL', ':PENT']):
+		origin_dict[self.res+name] = origins[i]
+		vec_dict[self.res+name] = vecs[i]
         else:
-			origin_dict[self.res+':NORMAL'] = origins[0]
-			vec_dict[self.res+':NORMAL'] = vecs[0]
-#             origin_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+'-NORMAL'] = origins[0]
-#             vec_dict[prs.getTotalResidue(res_coms[0], flag=False)[0]+'-NORMAL'] = vecs[0]
+		origin_dict[self.res+':NORMAL'] = origins[0]
+		vec_dict[self.res+':NORMAL'] = vecs[0]
         return origin_dict, vec_dict
 
 
@@ -260,11 +255,11 @@ class AminoAcid:
             - self.res, mda.residue object
             - origin_dict, vec_dict - def normalVecPIPI() output
         '''
-        if self.resname in prs.pication_aa:
-            res_keys = [key for key in list(self.origin.keys())]
-            origin = [self.origin[key] for key in res_keys]
-            norm = [self.vec[key] for key in res_keys]
-            return res_keys, origin, norm
+#         if self.resname in prs.pication_aa:
+#             res_keys = [key for key in list(self.origin.keys())]
+#             origin = [self.origin[key] for key in res_keys]
+#             norm = [self.vec[key] for key in res_keys]
+#             return res_keys, origin, norm
 
         if self.resname in prs.cation_aa:
             cations = self.atoms.select_atoms('name NZ CZ')
@@ -301,7 +296,7 @@ class AminoAcid:
 
 # TODO: avoid using the same names in function and class method
 # TODO: think about output format
-def PiPi(res1, res2):
+def find_pipi_bonds(res1, res2):
     '''
     @description
     	Find pipi interactions b/w atoms based on distance and angle cutoff
@@ -334,17 +329,17 @@ def PiPi(res1, res2):
 	return out
 
 # TODO: in writing functions you go though the same for loops
-def PiPi_writing(file1):   
-    '''
-    Write pipi interactions into file (output of def PiPi)
-    '''
-    with open(file1.replace(".pdb","_pipi2"),'w') as out:
-        for i in range(len(acids_class)):
-            for j in range(i+1, len(acids_class)):
-                bonds = PiPi(acids_class[i], acids_class[j])
-                if bonds: # for TRP we have HEX and PENT output
-                    for bond in bonds:
-                        out.write(bond)
+# def PiPi_writing(file1):   
+#     '''
+#     Write pipi interactions into file (output of def PiPi)
+#     '''
+#     with open(file1.replace(".pdb","_pipi2"),'w') as out:
+#         for i in range(len(acids_class)):
+#             for j in range(i+1, len(acids_class)):
+#                 bonds = PiPi(acids_class[i], acids_class[j])
+#                 if bonds: # for TRP we have HEX and PENT output
+#                     for bond in bonds:
+#                         out.write(bond)
 
 def PiCation(res1, res2):
     '''
@@ -360,39 +355,41 @@ def PiCation(res1, res2):
         - list of acids
     '''
     # Delete this restriction bc return None, end) -> not workfirst return None for None values
-    if res1.pication is None or res2.pication is None:
-        return None
-    if len(res1.pication) == 3 and len(res2.pication) == 1:
-        r1_keys, origin, norm = res1.pication
+    if res1.pipi is not None and res2.pication is not None:
+        key1, origin, norm = res1.pipi        
         cations = res2.pication
-    elif len(res1.pication) == 1 and len(res2.pication) == 3:
-        r1_keys, origin, norm = res2.pication
+    elif res1.pication is not None and res2.pipi is not None:
+        key1, origin, norm = res2.pipi
         cations = res1.pication
     else: return None
 	
 	out = []
-    for i in range(len(r1_keys)):
+    for i in range(len(key1)):
+		acid = ''.join(key1[i].split(':')[0:2])
         for cat in cations:
             catvec = cat.position - origin[i]
-            catangle = np.degrees(MDAmath.angle(norm[i][0], catvec[0]))
+            catangle = np.degrees(MDAmath.angle(norm[i][0], catvec))
             if catangle > prs.RIGHT_ANGLE: 
                 catangle = prs.STRAIGHT_ANGLE - catangle
-            if MDdist3D(origin[i][0], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
-                out.append(''.join(r1_keys[i].split(':')[0:2])+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+r1_keys[i].split(':')[2]+'\t'+cat.name+'\n')
-    return out
+                
+            if MDdist3D(origin[i], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
+                bond = acid+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+key1[i].split(':')[2]+'\t'+cat.name+'\n'
+                out.append(bond)
+	return out
 
-def PiCation_writing(file1):
-    '''
-    Write pipi interactions into file (output of def PiCation)
-    '''
-    with open(file1.replace(".pdb","_pication2"),'w') as out:
-        for i in range(len(acids_class)):
-            for j in range(i+1, len(acids_class)):
-                bonds = PiCation(acids_class[i], acids_class[j])
-                if bonds:
-                    # for TRP we have HEX and PENT output
-                    for bond in bonds:
-                        out.write(bond)
+# def PiCation_writing(file1):
+#     '''
+#     Write pipi interactions into file (output of def PiCation)
+#     '''
+#     with open(file1.replace(".pdb","_pication2"),'w') as out:
+#         for i in range(len(acids_class)):
+#             for j in range(i+1, len(acids_class)):
+#                 bonds = PiCation(acids_class[i], acids_class[j])
+#                 if bonds:
+#                     # for TRP we have HEX and PENT output
+#                     for bond in bonds:
+#                         out.write(bond)
+
 # saltBridges = [] # external call to write for hb instead of SB_writing 
 def SaltBridge(res1, res2):
     '''
@@ -408,9 +405,7 @@ def SaltBridge(res1, res2):
         - list of detailed salt bridges
         - list of acids for writing to file  
     '''
-    saltBridges = []
     out = []
-    saltBridgesTmp = []
     # check not None residues and call coords, atoms involved in salt bridges
     if res1.sb is None or res2.sb is None:
         return None
@@ -444,33 +439,24 @@ def SaltBridge(res1, res2):
             # ARG-1034A ASP-1073A must appear once
             # out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
             # TODO: why do you need saltBridgesTmp?
-            if (not [acid1, acid2] in saltBridgesTmp and
-				not [acid2, acid1] in saltBridgesTmp):
-                out.append(''.join(atom1.split(':')[0:2])+'\t'+''.join(atom2.split(':')[0:2])+
-                           '\tSCSC'+prs.SALT_CONST+'SB\t'+atom1.split(':')[2]+'\t'+atom2.split(':')[2]+'\n')
-                saltBridgesTmp.append([acid1, acid2])
-                saltBridgesTmp.append([acid2, acid1])
-        return list(set(out)) #, list(set(saltBridges))
+         	out.append(''.join(atom1.split(':')[0:2])+'\t'+''.join(atom2.split(':')[0:2])+
+					   '\tSCSC'+prs.SALT_CONST+'SB\t'+atom1.split(':')[2]+'\t'+atom2.split(':')[2]+'\n')
+        return out[0]
 
         
-def SB_writing(file1):
-    '''
-    Write salt bridges into file (output of def SaltBridge)
-    '''
-    saltBridges = []
-    with open(file1.replace(".pdb","_SaltBridges_Barlow"),'w') as out:
-        for i in range(len(acids_class)):
-            for j in range(i+1, len(acids_class)):
-                bonds = SaltBridge(acids_class[i], acids_class[j])
-                if bonds is not None:
-                    # hydrogen bonds that are in salt bridges will be deleted
-					for bond in bonds:
-						out.write(bond)
-#                     for res in result[1]:
-#                         saltBridges.append(res)
-#                     for res in result[0]:
-#                         out.write(res)
-#     return saltBridges
+# def SB_writing(file1):
+#     '''
+#     Write salt bridges into file (output of def SaltBridge)
+#     '''
+#     saltBridges = []
+#     with open(file1.replace(".pdb","_SaltBridges_Barlow"),'w') as out:
+#         for i in range(len(acids_class)):
+#             for j in range(i+1, len(acids_class)):
+#                 bonds = SaltBridge(acids_class[i], acids_class[j])
+#                 if bonds is not None:
+#                     # hydrogen bonds that are in salt bridges will be deleted
+# 					for bond in bonds:
+# 						out.write(bond)
 
 def Disulfide(res1, res2):
     '''
@@ -487,27 +473,25 @@ def Disulfide(res1, res2):
         return None
     else:   
         coord1, coord2 = res1.disulf, res2.disulf
-    out = []
+    acid1 = ''.join(res1.res.split(':'))
+    acid2 = ''.join(res2.res.split(':'))
     dist = MDdist3D(coord1, coord2)
     if dist < prs.DISULF_D:
-        # TODO: get rid of r1 and r2
-        r1 = res1.res
-        r2 = res2.res
-        out.append(''.join(r1.split('-'))+'\t'+''.join(r2.split('-'))+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n')
-        return out
+		bond = acid1+'\t'+acid2+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n'
+        return bond
 
-def Disulfide_writing(file1):
-    '''
-    Write disulfide bonds into file (output of def Disulfide)
-    '''
-    with open(file1.replace(".pdb","_disulf1"),'w') as out:
-        for i in range(len(acids_class)):
-            for j in range(i+1, len(acids_class)):
-                result = Disulfide(acids_class[i], acids_class[j])
-                if result is not None:
-                    out.write(result)
+# def Disulfide_writing(file1):
+#     '''
+#     Write disulfide bonds into file (output of def Disulfide)
+#     '''
+#     with open(file1.replace(".pdb","_disulf1"),'w') as out:
+#         for i in range(len(acids_class)):
+#             for j in range(i+1, len(acids_class)):
+#                 result = Disulfide(acids_class[i], acids_class[j])
+#                 if result is not None:
+#                     out.write(result)
 
-def Hydrogen_calculation():
+def Hydrogen_calculation(h):
     '''
     @description
     	Find hydrogen bonds in created hydrogen table by MDAnalysis
@@ -522,28 +506,28 @@ def Hydrogen_calculation():
     # TODO: you call SB_writing twice. Why do you need to call it here?
     # TODO: h should be an argument?
     # TODO: use more clear and full namings for variables
-    saltBridges = SB_writing(file1)
+    
     hydrogenBonds = []
     acceptorBonds = {}
     for hbond in h.table:
         # here donor is hydrogen atom
         # TODO: when doing such manipulations with str it is useful to put into comment example of the expected output
-        donor = hbond[3]+'-'+str(hbond[4])+segids[hbond[1]]+'-'+hbond[5]
-        acceptor = hbond[6]+'-'+str(hbond[7])+segids[hbond[2]]+'-'+hbond[8]
-        dH = hbond[3]+'-'+hbond[5]
+        donor = hbond[3]+':'+str(hbond[4])+u1_segids[hbond[1]]+':'+hbond[5] # replace segids with u1_segids
+        acceptor = hbond[6]+':'+str(hbond[7])+u1_segids[hbond[2]]+':'+hbond[8]
+        dH = hbond[3]+':'+hbond[5]
         if not dH in prs.hydrogen:
             continue
         # replace in donor hydrogen atom
-        dA = hbond[3]+'-'+str(hbond[4])+segids[hbond[1]]+'-'+prs.hydrogen[dH]
+        dA = hbond[3]+':'+str(hbond[4])+segids[hbond[1]]+':'+prs.hydrogen[dH]
         if not prs.isDonor(dA):
             continue
         # check whether bond not in saltbridges
         if (dA+'\t'+acceptor) in saltBridges or (acceptor+'\t'+dA) in saltBridges:
             continue
         # don't include neighboring acids
-        if donor.split('-')[:2] != acceptor.split('-')[:2] and (np.abs(hbond[4]-hbond[7]) != 1):
+        if donor.split(':')[:2] != acceptor.split(':')[:2] and (np.abs(hbond[4]-hbond[7]) != 1):
             # '-'.join(acceptor.split('-')[::2]) in nextAcids and check isAcceptor
-            if (acceptor.split("-")[0]+"-"+acceptor.split("-")[2] in prs.nextAcid) and prs.isAcceptor(acceptor):
+            if (acceptor.split(':')[0]+':'+acceptor.split(':')[2] in prs.nextAcid) and prs.isAcceptor(acceptor):
                 d1 = hbond[9] # H-A; hydrogen-acceptor distance 
                 # TODO: move magic constants to parameters
                 if d1 > 3.5:
@@ -553,14 +537,14 @@ def Hydrogen_calculation():
                     continue
 
                 alpha = hbond[10] # DHA angle > 120
-                aNext = prs.nextAcid[acceptor.split("-")[0]+"-"+acceptor.split("-")[2]] # next acid close to acceptor
+                aNext = prs.nextAcid[acceptor.split(':')[0]+"-"+acceptor.split(':')[2]] # next acid close to acceptor
                 # acceptor can have some number of bonds
                 if len(aNext)==2:
-                    neighbor1 = "-".join(acceptor.split("-")[0:2])+"-"+aNext[0]
-                    neighbor2 = "-".join(acceptor.split("-")[0:2])+"-"+aNext[1]
+                    neighbor1 = ':'.join(acceptor.split(':')[0:2])+':'+aNext[0]
+                    neighbor2 = ':'.join(acceptor.split(':')[0:2])+':'+aNext[1]
                     A1 = (coords[neighbor1]+coords[neighbor2])/2
                 else:
-                    A1 = coords["-".join(acceptor.split("-")[0:2])+"-"+aNext[0]]
+                    A1 = coords[':'.join(acceptor.split(':')[0:2])+':'+aNext[0]]
 
                 a = A1 - coords[acceptor]
                 b = coords[donor] - coords[acceptor]
@@ -602,16 +586,13 @@ def Hydrogen_calculation():
                     if beta < 90: # prs.STRAIGHT_ANGLE
                         beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
 
-		    # define Hydrogen Energy function in parameters.py
+		    		# define Hydrogen Energy function in parameters.py
                     if prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP3":
                         E = prs.energy_hb(d2, 'SP3', 'SP3', alpha, beta, 0)
-                        # E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)*((math.cos(math.radians(alpha)))**2)*(math.cos(math.radians(beta-109.5)))**2
                     elif prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP2":
                         E = prs.energy_hb(d2, 'SP3', 'SP2', alpha, beta, 0)
-                        # E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)*((math.cos(math.radians(alpha)))**2)*(math.cos(math.radians(beta)))**2
                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP3":
                         E = prs.energy_hb(d2, 'SP2', 'SP3', alpha, beta, 0)
-                        # E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)*((math.cos(math.radians(alpha)))**4) 
                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP2":
                         # for sp2-sp2 need to find angle psi b/w normals 
                         normalVecDonor = prs.normalDonorVecToPlane1(dA, coords)
@@ -623,45 +604,46 @@ def Hydrogen_calculation():
                             continue
                         psi = np.degrees(mda.lib.mdamath.angle(normalVecDonor,normalVecAcceptor))
                         E = prs.energy_hb(d2, 'SP2', 'SP2', alpha, beta, psi)
-                        # E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)*((math.cos(math.radians(alpha)))**2)*(math.cos(math.radians(max([beta,psi]))))**2
-                    interaction = donor+"\t"+acceptor+"\t"+dA+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split("-")[2]+"\t"+acceptor.split("-")[2]+"\n"
-                    hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split("-")[2]+"\t"+acceptor.split("-")[2]+"\n")
+#                     interaction = donor+"\t"+acceptor+"\t"+dA+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split("-")[2]+"\t"+acceptor.split("-")[2]+"\n"
+                    hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+
+										 str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+
+										 dA+"\t"+str(E)+"\t"+donor.split(':')[2]+"\t"+acceptor.split(':')[2]+"\n")
                     
     out = open(file1.replace(".pdb","_hb"),'w')
     finalHydrogenBonds = []
     donorBonds = {}
     for interaction in hydrogenBonds:
         donor = interaction.split("\t")[0]
-        dH = donor.split("-")[0]+"-"+donor.split("-")[2]
-        dA = donor.split("-")[0]+"-"+donor.split("-")[1]+"-"+prs.hydrogen[dH]
+        dH = donor.split(':')[0]+':'+donor.split(':')[2]
+        dA = donor.split(':')[0]+':'+donor.split(':')[1]+':'+prs.hydrogen[dH]
         acceptor = interaction.split("\t")[1]
         d1 = interaction.split("\t")[3]
         if not dA in donorBonds:
             donorBonds[dA] = 0
         #if water, allow all interactions
-        if dA.split("-")[0]=="HOH" or acceptor.split("-")[0]=="HOH":
+        if dA.split(':')[0]=="HOH" or acceptor.split("-")[0]=="HOH":
             out.write(interaction)
         if len(acceptorBonds[acceptor])==2 and (d1==str(acceptorBonds[acceptor][0]) or d1==str(acceptorBonds[acceptor][1])):
-            if dA.split("-")[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
+            if dA.split(':')[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
                 out.write(interaction)
                 donorBonds[dA]+=1
-            elif dA.split("-")[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
+            elif dA.split(':')[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
                 out.write(interaction)
                 donorBonds[dA]+=1
-            elif dA.split("-")[2] in ["NZ"] and donorBonds[dA] < 3:
+            elif dA.split(':')[2] in ["NZ"] and donorBonds[dA] < 3:
                 out.write(interaction)
                 donorBonds[dA]+=1
         elif d1 == str(acceptorBonds[acceptor][0]):
-            if dA.split("-")[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
+            if dA.split(':')[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
                 out.write(interaction)
                 donorBonds[dA]+=1
-            elif dA.split("-")[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
+            elif dA.split(':')[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
                 out.write(interaction)
                 donorBonds[dA]+=1
-            elif dA.split("-")[2] in ["NZ"] and donorBonds[dA] < 3:
+            elif dA.split(':')[2] in ["NZ"] and donorBonds[dA] < 3:
                 out.write(interaction)
                 donorBonds[dA]+=1
-            elif dA.split("-")[2] in ["0"]:
+            elif dA.split(':')[2] in ["0"]:
                 out.write(interaction)
     out.close()
 
