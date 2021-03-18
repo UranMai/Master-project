@@ -26,7 +26,7 @@ import parameters as prs
 # TODO: refactor function names in common ways, e.g. prepare_secondary_structure_file(...) and prepare_rsa_file(...)
 # TODO: why do we need pdb file here?
 
-def SecondaryStructure(file1):
+def prepare_secondary_structure_file(file1, phi_file):
     '''
     @description
      	Read pdb and phi file. Extract phi angles and secondary Structures of each acid from phi file
@@ -35,9 +35,14 @@ def SecondaryStructure(file1):
     @output 
         secondary structure files, ex. 4eiy_secondaryStructure and 4iey_secondaryStructure2
     '''
-    pdbfile = open(file1,'r').readlines() 
-    phifile = open(re.sub(".pdb","",file1)+".phi",'r').readlines()
-    secStructure = open(file1.replace(".pdb","")+"_secondaryStructure",'w')
+	if os.path.exists(phi_file):
+        phifile = open(phi_file, 'r').readlines()
+    else:
+        return 'Need secondary structure PHI file'
+	
+#     pdbfile = open(file1,'r').readlines() 
+#     phifile = open(re.sub(".pdb","",file1)+".phi",'r').readlines()
+    secStructure = open(file1.replace('.pdb','')+'_secondaryStructure', 'w')
     
     phi = {} 
     counter = 0
@@ -135,28 +140,28 @@ def SecondaryStructure(file1):
     secStructure.close()
 
     #Version 2 of secondary structure
-    secStructure2 = open(file1.replace(".pdb","")+"_secondaryStructure2",'w')
-    counter = 0
-    prevStruct = ""
+#     secStructure2 = open(file1.replace(".pdb","")+"_secondaryStructure2",'w')
+#     counter = 0
+#     prevStruct = ""
 
-    for i in range(len(phifile)):
-        line = phifile[i]
-        if line[0:3]=="ASG":
-            if line[12:15].strip()[-1] in string.ascii_uppercase:
-                continue
-            secStruct = line[33:42].strip()
-            if secStruct == "aHelix" and secStruct == prevStruct:
-                secStructure2.write(line[5:8]+line[11:15].lstrip()+line[9]+"\t"+secStruct+str(counter)+"\t"+line[42:51].strip()+"\n")
-            else:
-                counter+=1
-                secStructure2.write(line[5:8]+line[11:15].lstrip()+line[9]+"\t"+secStruct+str(counter)+"\t"+line[42:51].strip()+"\n")
-            prevStruct = secStruct
+#     for i in range(len(phifile)):
+#         line = phifile[i]
+#         if line[0:3]=="ASG":
+#             if line[12:15].strip()[-1] in string.ascii_uppercase:
+#                 continue
+#             secStruct = line[33:42].strip()
+#             if secStruct == "aHelix" and secStruct == prevStruct:
+#                 secStructure2.write(line[5:8]+line[11:15].lstrip()+line[9]+"\t"+secStruct+str(counter)+"\t"+line[42:51].strip()+"\n")
+#             else:
+#                 counter+=1
+#                 secStructure2.write(line[5:8]+line[11:15].lstrip()+line[9]+"\t"+secStruct+str(counter)+"\t"+line[42:51].strip()+"\n")
+#             prevStruct = secStruct
 
-    secStructure2.close()
+#     secStructure2.close()
 
 # TODO: add citation to Rose 1985
 # TODO: why not pass the phi file directly?
-def RSA(file1, phifile):
+def prepare_rsa_file(file1, phi_file):
     '''
     @description
         Read phi file. Take solvent area values from phi file and divide by max solvent area of aminoacid
@@ -166,8 +171,12 @@ def RSA(file1, phifile):
     @output 
         rsa file, ex. 4eiy_rsa 
     '''
-    phifile = open(file1.replace('pdb', 'phi'),'r').readlines()
-    with open(file1.replace('pdb', 'rsa'),'w') as rsafile:
+	if os.path.exists(phi_file):
+        phifile = open(phi_file, 'r').readlines()
+    else:
+        return 'Need secondary structure PHI file'
+#     phifile = open(file1.replace('pdb', 'phi'),'r').readlines()
+    with open(file1.replace('.pdb','')+'.rsa','w') as rsafile:
         for line in phifile:
             if line[0:3] == "ASG" and line[5:8] in prs.area.keys():
                 rsafile.write(line[5:8]+line[11:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n") # change line[12:15]
@@ -183,8 +192,8 @@ class AminoAcid:
     '''
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
-	self.resname = self.acid.resname
-	self.atoms = self.acid.atoms
+		self.resname = self.acid.resname
+		self.atoms = self.acid.atoms
         self.res = aminoacid.resname+':'+str(aminoacid.resid)+aminoacid.segid
         self.origin, self.vec = self.normalVecPIPI()
         self.pipi = self.PiPi()
@@ -222,11 +231,11 @@ class AminoAcid:
         # TODO: why not HEX for others?
         if self.resname in ['TRP']:
             for i, name in enumerate([':NORMAL', ':PENT']):
-		origin_dict[self.res+name] = origins[i]
-		vec_dict[self.res+name] = vecs[i]
+				origin_dict[self.res+name] = origins[i]
+				vec_dict[self.res+name] = vecs[i]
         else:
-		origin_dict[self.res+':NORMAL'] = origins[0]
-		vec_dict[self.res+':NORMAL'] = vecs[0]
+			origin_dict[self.res+':NORMAL'] = origins[0]
+			vec_dict[self.res+':NORMAL'] = vecs[0]
         return origin_dict, vec_dict
 
 
@@ -288,7 +297,8 @@ class AminoAcid:
             select = 'name NH* NZ* NE* ND*'
         elif self.resname in prs.acidic_salt_aa:
             select = 'name OE* OD*'
-        else: return None
+        else: 
+			return None
 
         atoms = self.atoms.select_atoms(select)
         coords = atoms.positions
@@ -341,7 +351,8 @@ def find_pipi_bonds(res1, res2):
 #                     for bond in bonds:
 #                         out.write(bond)
 
-def PiCation(res1, res2):
+# b/c changes prs.calc_norm_vec in origin, so here need to change origin[0] to origin
+def find_pication_bonds(res1, res2):
     '''
     @description
     	Find pi-cation interactions b/w atoms based on distance and angle cutoff
@@ -390,8 +401,8 @@ def PiCation(res1, res2):
 #                     for bond in bonds:
 #                         out.write(bond)
 
-# saltBridges = [] # external call to write for hb instead of SB_writing 
-def SaltBridge(res1, res2):
+saltBridges = [] # external call to write for hb instead of SB_writing 
+def find_salt_bridges(res1, res2):
     '''
     @description
     	Find salt bridges b/w atoms based on distance and angle cutoff
@@ -458,7 +469,7 @@ def SaltBridge(res1, res2):
 # 					for bond in bonds:
 # 						out.write(bond)
 
-def Disulfide(res1, res2):
+def find_disulfide_bonds(res1, res2):
     '''
     @description
         for atoms of CYS find disulfide bonds based on distance cutoff
@@ -473,6 +484,7 @@ def Disulfide(res1, res2):
         return None
     else:   
         coord1, coord2 = res1.disulf, res2.disulf
+		
     acid1 = ''.join(res1.res.split(':'))
     acid2 = ''.join(res2.res.split(':'))
     dist = MDdist3D(coord1, coord2)
@@ -491,45 +503,44 @@ def Disulfide(res1, res2):
 #                 if result is not None:
 #                     out.write(result)
 
-def Hydrogen_calculation(h):
-    '''
+
+def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
+	'''
     @description
     	Find hydrogen bonds in created hydrogen table by MDAnalysis
         - define saltBridges, if hydrogen atoms in salt bridges, continue
         - iterate through hydrogen table 
         - define donor (X-H) and acceptor (---A) parameters
     @input
+		h - table of hydrogen bonds calculated by MDAnalisys
+		file1 - pdb file used for generating HB file
+		u1_segids - created in main array of segids as u.atoms.segids
+		coords - dictionary of atoms and positions 
+		chain - dictionary of atoms and their type of chain (MC or SC)
     @output 
-        - list of acids 
-        - write file, ex. 4eiy_hb file 
+        HB file in needed format
     '''
-    # TODO: you call SB_writing twice. Why do you need to call it here?
-    # TODO: h should be an argument?
-    # TODO: use more clear and full namings for variables
-    
     hydrogenBonds = []
     acceptorBonds = {}
     for hbond in h.table:
         # here donor is hydrogen atom
-        # TODO: when doing such manipulations with str it is useful to put into comment example of the expected output
-        donor = hbond[3]+':'+str(hbond[4])+u1_segids[hbond[1]]+':'+hbond[5] # replace segids with u1_segids
-        acceptor = hbond[6]+':'+str(hbond[7])+u1_segids[hbond[2]]+':'+hbond[8]
+        donor = hbond[3]+':'+str(hbond[4])+':'+u1_segids[hbond[1]]+':'+hbond[5]
+        acceptor = hbond[6]+':'+str(hbond[7])+':'+u1_segids[hbond[2]]+':'+hbond[8]
         dH = hbond[3]+':'+hbond[5]
         if not dH in prs.hydrogen:
             continue
+        
         # replace in donor hydrogen atom
-        dA = hbond[3]+':'+str(hbond[4])+segids[hbond[1]]+':'+prs.hydrogen[dH]
+        dA = hbond[3]+':'+str(hbond[4])+':'+u1_segids[hbond[1]]+':'+prs.hydrogen[dH]
         if not prs.isDonor(dA):
             continue
-        # check whether bond not in saltbridges
+        # hydrogenBonds.append(hbond)
         if (dA+'\t'+acceptor) in saltBridges or (acceptor+'\t'+dA) in saltBridges:
             continue
-        # don't include neighboring acids
-        if donor.split(':')[:2] != acceptor.split(':')[:2] and (np.abs(hbond[4]-hbond[7]) != 1):
-            # '-'.join(acceptor.split('-')[::2]) in nextAcids and check isAcceptor
-            if (acceptor.split(':')[0]+':'+acceptor.split(':')[2] in prs.nextAcid) and prs.isAcceptor(acceptor):
+
+        if donor.split(':')[:3] != acceptor.split(':')[:3] and (np.abs(hbond[4]-hbond[7]) != 1):
+            if (acceptor.split(":")[0]+":"+acceptor.split(":")[3] in prs.nextAcid) and prs.isAcceptor(acceptor):
                 d1 = hbond[9] # H-A; hydrogen-acceptor distance 
-                # TODO: move magic constants to parameters
                 if d1 > 3.5:
                     continue
                 d2 = MDdist3D(coords[dA], coords[acceptor]) # donor-acceptor distance
@@ -537,15 +548,14 @@ def Hydrogen_calculation(h):
                     continue
 
                 alpha = hbond[10] # DHA angle > 120
-                aNext = prs.nextAcid[acceptor.split(':')[0]+"-"+acceptor.split(':')[2]] # next acid close to acceptor
+                aNext = prs.nextAcid[acceptor.split(":")[0]+":"+acceptor.split(":")[3]] # next acid close to acceptor
                 # acceptor can have some number of bonds
                 if len(aNext)==2:
-                    neighbor1 = ':'.join(acceptor.split(':')[0:2])+':'+aNext[0]
-                    neighbor2 = ':'.join(acceptor.split(':')[0:2])+':'+aNext[1]
+                    neighbor1 = ":".join(acceptor.split(":")[0:3])+":"+aNext[0]
+                    neighbor2 = ":".join(acceptor.split(":")[0:3])+":"+aNext[1]
                     A1 = (coords[neighbor1]+coords[neighbor2])/2
                 else:
-                    A1 = coords[':'.join(acceptor.split(':')[0:2])+':'+aNext[0]]
-
+                    A1 = coords[":".join(acceptor.split(":")[0:3])+":"+aNext[0]]
                 a = A1 - coords[acceptor]
                 b = coords[donor] - coords[acceptor]
                 beta = np.degrees(mda.lib.mdamath.angle(a, b)) # angle b/w A1-acceptor-donor (A1-acceptor neighbor)
@@ -558,11 +568,9 @@ def Hydrogen_calculation(h):
                     (prs.hydrogen[dH]=='S' and hbond[8]!='S' and d1 < 2.5 and d2 < 3.9 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
                     (prs.hydrogen[dH]!='S' and hbond[8]=='S' and d1 < 3.2 and d2 < 4.1 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
                     (prs.hydrogen[dH]=='S' and hbond[8]=='S' and d1 < 3.3 and d2 < 4.5 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE)]:
-                    #hbond[8] - acceptor atom
-                    #hydrogen[dH] - hydrogen
+                    
                     if not acceptor in acceptorBonds.keys():
                         acceptorBonds[acceptor] = []
-                    # TODO: to parameters
                     if hbond[8] in ["OD1","OD2","OE1","OE2","OG","OG1","SG"]: 
                         acceptorBonds[acceptor].append(d1)
                         if len(acceptorBonds[acceptor]) > 2:
@@ -575,80 +583,235 @@ def Hydrogen_calculation(h):
                             acceptorBonds[acceptor] = acceptorBonds[acceptor][0:1] 
                     if hbond[8] == "O" and hbond[6]=="HOH":
                         acceptorBonds[acceptor].append(d1)
-                    """
-                    Energy for various hybridizations
-                    Ef = V*[5*(do/d)^12 - 6*(do/d)^10]*F where do is 2.8, d is the distance between donor and acceptor atom (ie d2), V is 8 
-                    sp3 donor - sp3 acceptor F=cos^2(alpha)cos^2(beta-109.5)
-                    sp3 donor - sp2 acceptor F=cos^2(alpha)cos^2(beta)
-                    sp2 donor - sp3 acceptor F=cos^4(alpha)
-                    sp2 donor - sp2 acceptor F=cos^2(alpha)cos^2(max[alpha,beta])
-                    """
-                    if beta < 90: # prs.STRAIGHT_ANGLE
+
+                    if beta < 90:
                         beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
 
-		    		# define Hydrogen Energy function in parameters.py
                     if prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP3":
                         E = prs.energy_hb(d2, 'SP3', 'SP3', alpha, beta, 0)
                     elif prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP2":
                         E = prs.energy_hb(d2, 'SP3', 'SP2', alpha, beta, 0)
                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP3":
                         E = prs.energy_hb(d2, 'SP2', 'SP3', alpha, beta, 0)
+                    # hydrogenBonds.append(hbond)
                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP2":
-                        # for sp2-sp2 need to find angle psi b/w normals 
                         normalVecDonor = prs.normalDonorVecToPlane1(dA, coords)
-                        # TODO: handle warnings properly
-                        if normalVecDonor is None: # change to avoid warning
+                        if normalVecDonor is None:
                             continue
                         normalVecAcceptor = prs.normalAcceptorVecToPlane1(acceptor, coords)
-                        if normalVecAcceptor is None: # change to avoid warning
+                        if normalVecAcceptor is None:
                             continue
                         psi = np.degrees(mda.lib.mdamath.angle(normalVecDonor,normalVecAcceptor))
                         E = prs.energy_hb(d2, 'SP2', 'SP2', alpha, beta, psi)
-#                     interaction = donor+"\t"+acceptor+"\t"+dA+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split("-")[2]+"\t"+acceptor.split("-")[2]+"\n"
-                    hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+
-										 str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+
-										 dA+"\t"+str(E)+"\t"+donor.split(':')[2]+"\t"+acceptor.split(':')[2]+"\n")
-                    
-    out = open(file1.replace(".pdb","_hb"),'w')
-    finalHydrogenBonds = []
-    donorBonds = {}
-    for interaction in hydrogenBonds:
-        donor = interaction.split("\t")[0]
-        dH = donor.split(':')[0]+':'+donor.split(':')[2]
-        dA = donor.split(':')[0]+':'+donor.split(':')[1]+':'+prs.hydrogen[dH]
-        acceptor = interaction.split("\t")[1]
-        d1 = interaction.split("\t")[3]
-        if not dA in donorBonds:
-            donorBonds[dA] = 0
-        #if water, allow all interactions
-        if dA.split(':')[0]=="HOH" or acceptor.split("-")[0]=="HOH":
-            out.write(interaction)
-        if len(acceptorBonds[acceptor])==2 and (d1==str(acceptorBonds[acceptor][0]) or d1==str(acceptorBonds[acceptor][1])):
-            if dA.split(':')[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
-                out.write(interaction)
-                donorBonds[dA]+=1
-            elif dA.split(':')[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
-                out.write(interaction)
-                donorBonds[dA]+=1
-            elif dA.split(':')[2] in ["NZ"] and donorBonds[dA] < 3:
-                out.write(interaction)
-                donorBonds[dA]+=1
-        elif d1 == str(acceptorBonds[acceptor][0]):
-            if dA.split(':')[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
-                out.write(interaction)
-                donorBonds[dA]+=1
-            elif dA.split(':')[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
-                out.write(interaction)
-                donorBonds[dA]+=1
-            elif dA.split(':')[2] in ["NZ"] and donorBonds[dA] < 3:
-                out.write(interaction)
-                donorBonds[dA]+=1
-            elif dA.split(':')[2] in ["0"]:
-                out.write(interaction)
-    out.close()
+                    hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split(":")[3]+"\t"+acceptor.split(":")[3]+"\n")
+    
+        out = open(file1.replace(".pdb",'')+'_hb,'w')
+        finalHydrogenBonds = []
+        donorBonds = {}
+        for interaction in hydrogenBonds:
+            donor = interaction.split("\t")[0]
+            dH = donor.split(':')[0]+':'+donor.split(':')[3]
+            dA = ':'.join(donor.split(':')[0:3])+':'+prs.hydrogen[dH]
+            acceptor = interaction.split("\t")[1]
+            d1 = interaction.split("\t")[3]
+            bond = ''.join(donor.split(':')[:3])+'\t'+''.join(acceptor.split(':')[:3])+'\t'+interaction.split('\t')[2]+'\t'+interaction.split('\t')[9]+'\tHB\t'+donor.split(':')[3]+'\t'+acceptor.split(':')[3]+'\n'
+            if not dA in donorBonds:
+                donorBonds[dA] = 0
+            #if water, allow all interactions
+            if dA.split(':')[0]=="HOH" or acceptor.split(':')[0]=="HOH":
+                # out.write(interaction)
+                out.write(bond)
+            if len(acceptorBonds[acceptor])==2 and (d1==str(acceptorBonds[acceptor][0]) or d1==str(acceptorBonds[acceptor][1])):
+                if dA.split(':')[3] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
+                    # out.write(interaction)
+                    out.write(bond)
+                    donorBonds[dA]+=1
+                elif dA.split(':')[3] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
+                    # out.write(interaction)
+                    out.write(bond)
+                    donorBonds[dA]+=1
+                elif dA.split(':')[3] in ["NZ"] and donorBonds[dA] < 3:
+                    # out.write(interaction)
+                    out.write(bond)
+                    donorBonds[dA]+=1
+            elif d1 == str(acceptorBonds[acceptor][0]):
+                if dA.split(':')[3] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
+                    # out.write(interaction)
+                    out.write(bond)
+                    donorBonds[dA]+=1
+                elif dA.split(':')[3] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
+                    # out.write(interaction)
+                    out.write(bond)
+                    donorBonds[dA]+=1
+                elif dA.split(':')[3] in ["NZ"] and donorBonds[dA] < 3:
+                    # out.write(interaction)
+                    out.write(bond)
+                    donorBonds[dA]+=1
+                elif dA.split(':')[3] in ["0"]:
+                    # out.write(interaction)
+                    out.write(bond)
+        out.close() 
+# TODO: handle warnings properly
 
-def VdW_calculation():
-    '''
+# def find_hydrogen_bonds(h):
+#     '''
+#     @description
+#     	Find hydrogen bonds in created hydrogen table by MDAnalysis
+#         - define saltBridges, if hydrogen atoms in salt bridges, continue
+#         - iterate through hydrogen table 
+#         - define donor (X-H) and acceptor (---A) parameters
+#     @input
+#     @output 
+#         - list of acids 
+#         - write file, ex. 4eiy_hb file 
+#     '''
+#     # TODO: you call SB_writing twice. Why do you need to call it here?
+#     # TODO: h should be an argument?
+#     # TODO: use more clear and full namings for variables
+    
+#     hydrogenBonds = []
+#     acceptorBonds = {}
+#     for hbond in h.table:
+#         # here donor is hydrogen atom
+#         # TODO: when doing such manipulations with str it is useful to put into comment example of the expected output
+#         donor = hbond[3]+':'+str(hbond[4])+u1_segids[hbond[1]]+':'+hbond[5] # replace segids with u1_segids
+#         acceptor = hbond[6]+':'+str(hbond[7])+u1_segids[hbond[2]]+':'+hbond[8]
+#         dH = hbond[3]+':'+hbond[5]
+#         if not dH in prs.hydrogen:
+#             continue
+#         # replace in donor hydrogen atom
+#         dA = hbond[3]+':'+str(hbond[4])+segids[hbond[1]]+':'+prs.hydrogen[dH]
+#         if not prs.isDonor(dA):
+#             continue
+#         # check whether bond not in saltbridges
+#         if (dA+'\t'+acceptor) in saltBridges or (acceptor+'\t'+dA) in saltBridges:
+#             continue
+#         # don't include neighboring acids
+#         if donor.split(':')[:2] != acceptor.split(':')[:2] and (np.abs(hbond[4]-hbond[7]) != 1):
+#             # '-'.join(acceptor.split('-')[::2]) in nextAcids and check isAcceptor
+#             if (acceptor.split(':')[0]+':'+acceptor.split(':')[2] in prs.nextAcid) and prs.isAcceptor(acceptor):
+#                 d1 = hbond[9] # H-A; hydrogen-acceptor distance 
+#                 # TODO: move magic constants to parameters
+#                 if d1 > 3.5:
+#                     continue
+#                 d2 = MDdist3D(coords[dA], coords[acceptor]) # donor-acceptor distance
+#                 if d2 > 4.5:
+#                     continue
+
+#                 alpha = hbond[10] # DHA angle > 120
+#                 aNext = prs.nextAcid[acceptor.split(':')[0]+"-"+acceptor.split(':')[2]] # next acid close to acceptor
+#                 # acceptor can have some number of bonds
+#                 if len(aNext)==2:
+#                     neighbor1 = ':'.join(acceptor.split(':')[0:2])+':'+aNext[0]
+#                     neighbor2 = ':'.join(acceptor.split(':')[0:2])+':'+aNext[1]
+#                     A1 = (coords[neighbor1]+coords[neighbor2])/2
+#                 else:
+#                     A1 = coords[':'.join(acceptor.split(':')[0:2])+':'+aNext[0]]
+
+#                 a = A1 - coords[acceptor]
+#                 b = coords[donor] - coords[acceptor]
+#                 beta = np.degrees(mda.lib.mdamath.angle(a, b)) # angle b/w A1-acceptor-donor (A1-acceptor neighbor)
+
+#                 a = A1 - coords[acceptor]
+#                 b = coords[dA] - coords[acceptor]
+#                 gamma = np.degrees(mda.lib.mdamath.angle(a, b)) # angle b/w A1-acceptor-dA
+
+#                 if [(prs.hydrogen[dH]!='S' and hbond[8]!='S' and d1 < 2.5 and d2 < 3.9 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
+#                     (prs.hydrogen[dH]=='S' and hbond[8]!='S' and d1 < 2.5 and d2 < 3.9 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
+#                     (prs.hydrogen[dH]!='S' and hbond[8]=='S' and d1 < 3.2 and d2 < 4.1 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
+#                     (prs.hydrogen[dH]=='S' and hbond[8]=='S' and d1 < 3.3 and d2 < 4.5 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE)]:
+#                     #hbond[8] - acceptor atom
+#                     #hydrogen[dH] - hydrogen
+#                     if not acceptor in acceptorBonds.keys():
+#                         acceptorBonds[acceptor] = []
+#                     # TODO: to parameters
+#                     if hbond[8] in ["OD1","OD2","OE1","OE2","OG","OG1","SG"]: 
+#                         acceptorBonds[acceptor].append(d1)
+#                         if len(acceptorBonds[acceptor]) > 2:
+#                             acceptorBonds[acceptor].sort()
+#                             acceptorBonds[acceptor] = acceptorBonds[acceptor][0:2]
+#                     if hbond[8] in ["O","ND1","NE2","OH"] and hbond[6]!="HOH": 
+#                         acceptorBonds[acceptor].append(d1)
+#                         if len(acceptorBonds[acceptor]) > 1:
+#                             acceptorBonds[acceptor].sort()
+#                             acceptorBonds[acceptor] = acceptorBonds[acceptor][0:1] 
+#                     if hbond[8] == "O" and hbond[6]=="HOH":
+#                         acceptorBonds[acceptor].append(d1)
+#                     """
+#                     Energy for various hybridizations
+#                     Ef = V*[5*(do/d)^12 - 6*(do/d)^10]*F where do is 2.8, d is the distance between donor and acceptor atom (ie d2), V is 8 
+#                     sp3 donor - sp3 acceptor F=cos^2(alpha)cos^2(beta-109.5)
+#                     sp3 donor - sp2 acceptor F=cos^2(alpha)cos^2(beta)
+#                     sp2 donor - sp3 acceptor F=cos^4(alpha)
+#                     sp2 donor - sp2 acceptor F=cos^2(alpha)cos^2(max[alpha,beta])
+#                     """
+#                     if beta < 90: # prs.STRAIGHT_ANGLE
+#                         beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
+
+# 		    		# define Hydrogen Energy function in parameters.py
+#                     if prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP3":
+#                         E = prs.energy_hb(d2, 'SP3', 'SP3', alpha, beta, 0)
+#                     elif prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP2":
+#                         E = prs.energy_hb(d2, 'SP3', 'SP2', alpha, beta, 0)
+#                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP3":
+#                         E = prs.energy_hb(d2, 'SP2', 'SP3', alpha, beta, 0)
+#                     elif prs.SPHyb(dA)=="SP2" and prs.SPHyb(acceptor)=="SP2":
+#                         # for sp2-sp2 need to find angle psi b/w normals 
+#                         normalVecDonor = prs.normalDonorVecToPlane1(dA, coords)
+#                         # TODO: handle warnings properly
+#                         if normalVecDonor is None: # change to avoid warning
+#                             continue
+#                         normalVecAcceptor = prs.normalAcceptorVecToPlane1(acceptor, coords)
+#                         if normalVecAcceptor is None: # change to avoid warning
+#                             continue
+#                         psi = np.degrees(mda.lib.mdamath.angle(normalVecDonor,normalVecAcceptor))
+#                         E = prs.energy_hb(d2, 'SP2', 'SP2', alpha, beta, psi)
+# #                     interaction = donor+"\t"+acceptor+"\t"+dA+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split("-")[2]+"\t"+acceptor.split("-")[2]+"\n"
+#                     hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+
+# 										 str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+
+# 										 dA+"\t"+str(E)+"\t"+donor.split(':')[2]+"\t"+acceptor.split(':')[2]+"\n")
+                    
+#     out = open(file1.replace(".pdb","_hb"),'w')
+#     finalHydrogenBonds = []
+#     donorBonds = {}
+#     for interaction in hydrogenBonds:
+#         donor = interaction.split("\t")[0]
+#         dH = donor.split(':')[0]+':'+donor.split(':')[2]
+#         dA = donor.split(':')[0]+':'+donor.split(':')[1]+':'+prs.hydrogen[dH]
+#         acceptor = interaction.split("\t")[1]
+#         d1 = interaction.split("\t")[3]
+#         if not dA in donorBonds:
+#             donorBonds[dA] = 0
+#         #if water, allow all interactions
+#         if dA.split(':')[0]=="HOH" or acceptor.split("-")[0]=="HOH":
+#             out.write(interaction)
+#         if len(acceptorBonds[acceptor])==2 and (d1==str(acceptorBonds[acceptor][0]) or d1==str(acceptorBonds[acceptor][1])):
+#             if dA.split(':')[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
+#                 out.write(interaction)
+#                 donorBonds[dA]+=1
+#             elif dA.split(':')[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
+#                 out.write(interaction)
+#                 donorBonds[dA]+=1
+#             elif dA.split(':')[2] in ["NZ"] and donorBonds[dA] < 3:
+#                 out.write(interaction)
+#                 donorBonds[dA]+=1
+#         elif d1 == str(acceptorBonds[acceptor][0]):
+#             if dA.split(':')[2] not in ["NH1","NH2","ND2","NE2","NZ"] and donorBonds[dA]==0:
+#                 out.write(interaction)
+#                 donorBonds[dA]+=1
+#             elif dA.split(':')[2] in ["NH1","NH2","ND2","NE2"] and donorBonds[dA] < 2:
+#                 out.write(interaction)
+#                 donorBonds[dA]+=1
+#             elif dA.split(':')[2] in ["NZ"] and donorBonds[dA] < 3:
+#                 out.write(interaction)
+#                 donorBonds[dA]+=1
+#             elif dA.split(':')[2] in ["0"]:
+#                 out.write(interaction)
+#     out.close()
+
+     
+def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, coords, chain):
+	'''
     @description
         - select atoms and their coords
         - capped distance with restricted distance (4.25)
@@ -656,165 +819,208 @@ def VdW_calculation():
         - if it's difference less 0.5 and not from neighboring acids and not from main chain
         - find vdw energy 
     @input
+		pairs - pairs of interacted atoms created by capped_distance in main
+		file1 - pdb file used for generating HB file
+		u1_resnames - created in main array of resnames as u.atoms.resnames
+		u1_resids - created in main array of resids as u.atoms.resids
+		u1_segids - created in main array of segids as u.atoms.segids
+		u1_names - created in main array of names as u.atoms.names
+		coords - dictionary of atoms and positions 
+		chain - dictionary of atoms and their type of chain (MC or SC)
     @return 
         - list of acids 
         - files, ex. 4eiy_vdw and 4eiy_vdw2
-    '''
-
-    allatoms = list(prs.getTotalResidue(u) + names) 
-    van = u1.atoms.positions
-    # capped distnace with distance cutoff based on max vdw radii
-    pairs, distances = mda.lib.distances.capped_distance(van, van, max_cutoff=4.25, min_cutoff=0)
+    '''		   
     van_atom = np.split(pairs[:, 1], np.cumsum(np.unique(pairs[:, 0], return_counts=True)[1])[:-1])
-    scores=[]
-    scores2 = []
     vdw1 = {}
     vdw2 = {}
-    output1 = []
-    # iterate through combinations of atoms and find bonds under condtions
     for i, k in enumerate(van_atom):
-        elem1 = allatoms[i]
-        res1 = resnames[i]+' '+str(resids[i])+' '+segids[i]
-        atom1 = names[i]
+        elem1 = u1_resnames[i]+':'+str(u1_resids[i])+':'+u1_segids[i]+':'+u1_names[i]
+        res1 = u1_resnames[i]+':'+str(u1_resids[i])+':'+u1_segids[i]
+        atom1 = u1_names[i]
         for j in k:
-            elem2 = allatoms[j]
-            res2 = resnames[j]+' '+str(resids[j])+' ' +segids[j]
-            atom2 =names[j]
+            elem2 = u1_resnames[j]+':'+str(u1_resids[j])+':'+u1_segids[j]+':'+u1_names[j]
+            res2 = u1_resnames[j]+':'+str(u1_resids[j])+':' +u1_segids[j]
+            atom2 = u1_names[j]
             if res2+':'+res1+':'+chain[elem2]+":"+chain[elem1]+":"+atom2+":"+atom1 in vdw1:
                 continue
             if (not res1==res2 and atom1 in prs.radii and atom2 in prs.radii):
                 rm = prs.radii[atom1] + prs.radii[atom2] # sum vdw radii of 2 atoms
                 r = MDdist3D(coords[elem1], coords[elem2]) # distance of 2 atoms
 
-                if r - rm < .5 and not (prs.isNeighbor(elem1,elem2) and chain[elem1]=="MC" and chain[elem2]=="MC"):
+                if r - rm < .5 and not (np.abs(int(elem1.split(':')[1]) - int(elem2.split(':')[1]))==1) and chain[elem1]=="MC" and chain[elem2]=="MC":
                     if not  res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2 in vdw1:
                         vdw1[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2] = []
-
-                    # TODO: still magic constants...
-                    E = (-.997*((rm/r)**12-2*(rm/r)**6))*4
-                    # E = prs.energy_vdw(rm , r)
+                    # E = (-.997*((rm/r)**12-2*(rm/r)**6))*4
+                    E = prs.energy_vdw(rm , r)
                     vdw1[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2].append(E)
-                    # scores.append(E)
-                    scores.append(sum(vdw1[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2]))
-
                     if ("C" in atom1 and "C" in atom2) or ("C" in atom1 and atom2 in ["NE2","OE1","ND2","OD1"] and res2.split(" ")[0] in ["GLN","ASN"]) or (atom1 in ["NE2","OE1","ND2","OD1"] and res1.split(" ")[0] in ["GLN","ASN"] and "C" in atom2):
                         if not res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2 in vdw2:
                             vdw2[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2] = []
                         vdw2[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2].append(E)
-                        scores2.append(sum(vdw1[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2]))
-
     with open(file1.replace(".pdb","_vdw"),'w') as out:
         for contact in vdw1:
-            if not (sum(vdw1[contact])<0 and abs(int(contact.split(':')[0].split(' ')[1]) - int(contact.split(':')[1].split(' ')[1]))==1):
-                out.write(''.join(contact.split(' '))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[4]+"\t"+contact.split(":")[5]+"\n")
-    
+            if not (sum(vdw1[contact])<0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[4]))==1):
+                out.write(''.join(contact.split(' '))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
+
     with open(file1.replace(".pdb","_vdw2"),'w') as out:
         for contact in vdw2:
-            if not (sum(vdw2[contact]) < 0 and abs(int(contact.split(':')[0].split(' ')[1]) - int(contact.split(':')[1].split(' ')[1]))==1):
-                out.write(''.join(contact.split(' '))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[4]+"\t"+contact.split(":")[5]+"\n")
+            if not (sum(vdw2[contact]) < 0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[4]))==1):
+                out.write(''.join(contact.split(' '))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
+				   
 
-def Calc_MetalBonds(met, AA1):
-    '''
-    @description
-    	find metal bonds, distance b/w metal and acid atoms
-	for each acid take own distance from dictionary
-    @input 
-    	met - mda.select of metalls
-    	AA1 - aminoacids class
-    @output
-	list of residues involved in metal bonds
-    '''
-    metal2atom = []
-    acid = AA1.acid
-    metal = met.resname+'-'+str(met.resid)+met.segid+'-'+met.name
-    r, resid, segid = acid.resname, acid.resid, acid.segid
-    res = r + '-' + str(resid) + segid + '-'
-
-    for atom in acid.atoms:
-        a = atom.name
-        distance = MDdist3D(coords[metal], coords[res+a])
-        if distance < 3.5 and r in prs.METALLS_DICT:
-            dist, atoms2 = prs.METALLS_DICT[r]
-            if met.resname in dist:
-                d = dist[met.resname]
-                if r == 'ASP' and a in atoms2:
-                    if distance < prs.GLUASPmonoDist[met.resname]:
-                        metal2atom.append(res+a)
-                    tmpatom21 = res+'OD1'
-                    tmpatom12 = res+'OD2'
-                    if MDdist3D(coords[res+a], coords[tmpatom21]) <= prs.GLUASPbiDist[met.resname] and MDdist3D(coords[res+a], coords[tmpatom12]) <= prs.GLUASPbiDist[met.resname]:
-                        metal2atom.append(res+a)
-                
-                elif r == 'GLU' and a in atoms2:
-                    if dist3D(coords[metal], coords[res+a]) < prs.GLUASPmonoDist[met.resname]:
-                        metal2atom.append(res+a)
-                    tmpatom21 = res+'OE1'
-                    tmpatom12 = res+'OE2'
-                    if MDdist3D(coords[res+a], coords[tmpatom21]) <= prs.GLUASPbiDist[met.resname] and MDdist3D(coords[res+a], coords[tmpatom12]) <= prs.GLUASPbiDist[met.resname]:
-                        metal2atom.append(res+a)   
-
-                elif distance <= d and a in atoms2:
-                    metal2atom.append(res+a)
-    return metal2atom
-
-def write_metalbonds(met, metal2atom):
+def find_metal_bonds(file1, metalls, acids_class):
 	'''
-	@description
-	    Iterate through the list of residues and find distances b/w metal atom
 	@input
-	    met - mda.selection of metalls 
-	    metal2atom - list of residues involved in metal bonds
+		file1 - 
+		metalls - mda selection of metalls 
+		acids_class - created list of class of aminoacids
 	'''
-    metal = met.resname+'-'+str(met.resid)+met.segid+'-'+met.name
-    metalBondsFiltered = []
-    origin = met.position
-    for atom21 in metal2atom:
-        atom21coords = coords[atom21]
-        atom21coords = atom21coords - origin
-        for atom22 in metal2atom:
-            atom22coords = coords[atom22]
-            atom22coords = atom22coords - origin
-            if atom21 != atom22:
-                ang = np.degrees(mda.lib.mdamath.angle(atom21coords, atom22coords))
-                if atom22+"\t"+atom21+"\t"+chain[atom22]+chain[atom21]+"\t"+metal+"\t"+str(ang)+'\n' in metalBondsFiltered:
-                    continue
-                if atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n' in metalBondsFiltered:
-                    continue
-                if met.name in ["NA","K","FE","CU","ZN"] and prs.RIGHT_ANGLE<ang<prs.STRAIGHT_ANGLE:
-#                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
-					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
-                elif ang > prs.RIGHT_ANGLE:
-#                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
-					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
-    return metalBondsFiltered
-
-def MetalBonds_calculation1():
-    '''
-    @description
-    	iterate through acid classes and metalls and find metal bonds
-    @parameteres
-    	input pdb file defined in __main__, ex. 4eiy.pdb
-    @return
-    	file, ex. 4eiy_metal
-    '''
-    metals = prs.metals # from parameters
-    met_select = 'resname {}'.format(' '.join(list(metals)))
-    metalls = u.select_atoms(met_select)
-    metal2atom = []
-    output = []
+    metal2atom=[]
+    metalBonds = []
     for met in metalls:
+        # metall = met.resname+':'+str(met.resid)+':'+met.segid+':'+met.name
+        met_pos = met.position
         for i in range(len(acids_class)):
-            result = Calc_MetalBonds(met, acids_class[i])
-            if len(result) != 0:
-                for res in result:
-                    metal2atom.append(res)
-        output.append(write_metalbonds(met, metal2atom))
+            acid = acids_class[i]
+            for atom in acid.atoms:
+                dist = MDdist3D(met.position, atom.position)
+                if dist < 3.5 and acid.resname in prs.METALLS_DICT:
+                    met_dist, atoms = prs.METALLS_DICT[acid.resname]
+                    if met.resname in met_dist:
+                        d = met_dist[met.resname]
+                        if acid.resname is 'ASP' and atom.name in atoms:
+                            if dist < prs.GLUASPmonoDist[met.resname]:
+                                metal2atom.append(atom)
+                        elif acid.resname is 'GLU' and atom.name in atoms:
+                            if dist < prs.GLUASPmonoDist[met.resname]:
+                                metal2atom.append(atom)
+                        elif dist <= d and atom.name in atoms:
+                            metal2atom.append(atom)
 
-    out = open(file1.replace(".pdb","_metal"),'w')
-    for bond in output:
-        for i in bond:
-            out.write(i)
-    out.close()
+        for i in range(len(metal2atom)):
+            for j in range(i+1, len(metal2atom)):
+                atom1, atom2 = metal2atom[i], metal2atom[j]
+                atom_1 = atom1.resname+':'+str(atom1.resid)+':'+atom1.segid+':'+atom1.name
+                atom_2 = atom2.resname+':'+str(atom2.resid)+':'+atom2.segid+':'+atom2.name
+                atom1_pos = atom1.position
+                atom2_pos = atom2.position
+                coords1 = met_pos - atom1_pos
+                coords2 = met_pos - atom2_pos
+
+                angle = np.degrees(MDAmath.angle(coords1, coords2))
+                if met.resname in ['NA', 'K', 'FE', 'CU', 'ZN'] and 90 < angle < 180:
+                    metalBonds.append(''.join(atom_1.split(':')[:3])+'\t'+''.join(atom_2.split(':')[:3])+'\t'+
+                                    chain[atom_1]+chain[atom_2]+'\t3\tMETAL\t'+''.join(atom_1.split(':')[3])+'\t'
+                                    +''.join(atom_2.split(':')[3])+'\n')
+                                    #   metall+'\t'+str(angle))
+    
+    with open(file1.replace('.pdb', '_metal'), 'a') as out:
+        for bond in metalBonds:
+            out.write(bond)				   
+				   
+# def Calc_MetalBonds(met, AA1):
+#     '''
+#     @description
+#     	find metal bonds, distance b/w metal and acid atoms
+# 	for each acid take own distance from dictionary
+#     @input 
+#     	met - mda.select of metalls
+#     	AA1 - aminoacids class
+#     @output
+# 	list of residues involved in metal bonds
+#     '''
+#     metal2atom = []
+#     acid = AA1.acid
+#     metal = met.resname+'-'+str(met.resid)+met.segid+'-'+met.name
+#     r, resid, segid = acid.resname, acid.resid, acid.segid
+#     res = r + '-' + str(resid) + segid + '-'
+
+#     for atom in acid.atoms:
+#         a = atom.name
+#         distance = MDdist3D(coords[metal], coords[res+a])
+#         if distance < 3.5 and r in prs.METALLS_DICT:
+#             dist, atoms2 = prs.METALLS_DICT[r]
+#             if met.resname in dist:
+#                 d = dist[met.resname]
+#                 if r == 'ASP' and a in atoms2:
+#                     if distance < prs.GLUASPmonoDist[met.resname]:
+#                         metal2atom.append(res+a)
+#                     tmpatom21 = res+'OD1'
+#                     tmpatom12 = res+'OD2'
+#                     if MDdist3D(coords[res+a], coords[tmpatom21]) <= prs.GLUASPbiDist[met.resname] and MDdist3D(coords[res+a], coords[tmpatom12]) <= prs.GLUASPbiDist[met.resname]:
+#                         metal2atom.append(res+a)
+                
+#                 elif r == 'GLU' and a in atoms2:
+#                     if dist3D(coords[metal], coords[res+a]) < prs.GLUASPmonoDist[met.resname]:
+#                         metal2atom.append(res+a)
+#                     tmpatom21 = res+'OE1'
+#                     tmpatom12 = res+'OE2'
+#                     if MDdist3D(coords[res+a], coords[tmpatom21]) <= prs.GLUASPbiDist[met.resname] and MDdist3D(coords[res+a], coords[tmpatom12]) <= prs.GLUASPbiDist[met.resname]:
+#                         metal2atom.append(res+a)   
+
+#                 elif distance <= d and a in atoms2:
+#                     metal2atom.append(res+a)
+#     return metal2atom
+
+# def write_metalbonds(met, metal2atom):
+# 	'''
+# 	@description
+# 	    Iterate through the list of residues and find distances b/w metal atom
+# 	@input
+# 	    met - mda.selection of metalls 
+# 	    metal2atom - list of residues involved in metal bonds
+# 	'''
+#     metal = met.resname+'-'+str(met.resid)+met.segid+'-'+met.name
+#     metalBondsFiltered = []
+#     origin = met.position
+#     for atom21 in metal2atom:
+#         atom21coords = coords[atom21]
+#         atom21coords = atom21coords - origin
+#         for atom22 in metal2atom:
+#             atom22coords = coords[atom22]
+#             atom22coords = atom22coords - origin
+#             if atom21 != atom22:
+#                 ang = np.degrees(mda.lib.mdamath.angle(atom21coords, atom22coords))
+#                 if atom22+"\t"+atom21+"\t"+chain[atom22]+chain[atom21]+"\t"+metal+"\t"+str(ang)+'\n' in metalBondsFiltered:
+#                     continue
+#                 if atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n' in metalBondsFiltered:
+#                     continue
+#                 if met.name in ["NA","K","FE","CU","ZN"] and prs.RIGHT_ANGLE<ang<prs.STRAIGHT_ANGLE:
+# #                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
+# 					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
+#                 elif ang > prs.RIGHT_ANGLE:
+# #                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
+# 					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
+#     return metalBondsFiltered
+
+# def MetalBonds_calculation1():
+#     '''
+#     @description
+#     	iterate through acid classes and metalls and find metal bonds
+#     @parameteres
+#     	input pdb file defined in __main__, ex. 4eiy.pdb
+#     @return
+#     	file, ex. 4eiy_metal
+#     '''
+#     metals = prs.metals # from parameters
+#     met_select = 'resname {}'.format(' '.join(list(metals)))
+#     metalls = u.select_atoms(met_select)
+#     metal2atom = []
+#     output = []
+#     for met in metalls:
+#         for i in range(len(acids_class)):
+#             result = Calc_MetalBonds(met, acids_class[i])
+#             if len(result) != 0:
+#                 for res in result:
+#                     metal2atom.append(res)
+#         output.append(write_metalbonds(met, metal2atom))
+
+#     out = open(file1.replace(".pdb","_metal"),'w')
+#     for bond in output:
+#         for i in bond:
+#             out.write(i)
+#     out.close()
 
 def DNA_bonds(file1):
     '''
@@ -854,60 +1060,107 @@ def DNA_bonds(file1):
 
     with open(file1.replace('.pdb', '_DNA'), 'w') as out:
         for nucleotide, atom in DNAbindingPairs:
-#             out.write(nucleotide+'\t'+atom+'\t'+chain[atom]+'\n')
 	    	out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
-	
 
-def Ligand_bonds(file1):
-    '''
-	@description
-	    iterate through protein atoms and ligands, finding distance b/w them and write to file
-    	replacing distance to less value try to find the less distance b/w atom and ligand
-    '''
-    atoms = list(prs.getTotalResidue(protein) + (protein).atoms.names)
-    with open(file1.replace(".pdb","_ligand"),'w') as out:
-        for atom in atoms:
-            if chain[atom] == 'SC':
-                tmpdist0 = 150
-                for ligand in sorted(ligandCentroids.keys()):
-                    tmpdist1 = MDdist3D(coords[atom], ligandCentroids[ligand])
-                    if tmpdist1 > tmpdist0:
-                        continue
-                    out.write(atom.split("-")[0]+atom.split("-")[1]+"-"+atom.split("-")[2]+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
-                    tmpdist0 = float(copy.copy(tmpdist1))
+
+def find_ligand_atom_bonds(file1):
+	'''
+	Find min distance between atom and ligand
+	'''
+    distances = {}
+    out = open(file1.replace('.pdb', '_ligand'), 'w')
+    for res, name in zip(residues, u1_names):
+        atom = res+':'+name
+        if chain[atom] == 'SC':
+            distances[atom] = {}
+            distances[atom]['dist'] = 150
+            distances[atom]['ligand'] = ''
+            for ligand in sorted(ligand_centroids.keys()):
+                distance1 = MDdist3D(coords[atom], ligand_centroids[ligand])
+                if distance1 > distances[atom]['dist']:
+                    continue
+                distances[atom]['dist'] = distance1
+                distances[atom]['ligand'] = ligand
+            out.write(''.join(atom.split(':')[:3])+'\t'+''.join((distances[atom]['ligand']).split(':'))+'\t'+str(distances[atom]['dist'])+'\n')
+    out.close()
+
+# def Ligand_bonds(file1):
+#     '''
+# 	@description
+# 	    iterate through protein atoms and ligands, finding distance b/w them and write to file
+#     	replacing distance to less value try to find the less distance b/w atom and ligand
+#     '''
+#     atoms = list(prs.getTotalResidue(protein) + (protein).atoms.names)
+#     with open(file1.replace(".pdb","_ligand"),'w') as out:
+#         for atom in atoms:
+#             if chain[atom] == 'SC':
+#                 tmpdist0 = 150
+#                 for ligand in sorted(ligandCentroids.keys()):
+#                     tmpdist1 = MDdist3D(coords[atom], ligandCentroids[ligand])
+#                     if tmpdist1 > tmpdist0:
+#                         continue
+#                     out.write(atom.split("-")[0]+atom.split("-")[1]+"-"+atom.split("-")[2]+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
+#                     tmpdist0 = float(copy.copy(tmpdist1))
 
 # TODO: not clear
-def Centroids():
-    '''
-	@description
-   		for loop centroid data, find distane b/w and if it < 8.5
-    	not include 2 interacting HOH and same residues
-    '''
-    with open(re.sub(".pdb","",file1)+"_centroidNetSC",'w') as out:
-        for residue1 in sorted(centroid.keys()):
-            for residue2 in sorted(centroid.keys()):
-                if "HOH" in residue1 and "HOH" in residue2:
-                    continue
-                if residue1==residue2:
-                    continue
-                x = MDdist3D(np.array(centroid[residue1]),np.array(centroid[residue2])) 
-                if x < 8.5:
-                    out.write(re.sub("-","",residue1)+"\t"+re.sub("-","",residue2)+"\t"+"SCSC"+"\t"+"1"+"\t"+"CENTROID\t"+"CENTROID\t"+"CENTROID\t"+str(x)+"\n")
-    '''
-    find the shortest distance b/w centroid and ligand
-    '''
-    with open(re.sub(".pdb","",file1)+"_centroidNetLigand",'w') as out:
-        for residue1 in centroid.keys():
-            if "HOH" in residue1:
-                continue
-            tmpdist0 = 150
-            for ligand in sorted(ligandCentroids.keys()):
-                tmpdist1 = MDdist3D(np.array(centroid[residue1]),ligandCentroids[ligand])
-                if tmpdist1 > tmpdist0:
-                    continue
-                out.write(re.sub("-","",residue1)+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
-                tmpdist0 = float(copy.copy(tmpdist1))   
+# def Centroids():
+#     '''
+# 	@description
+#    		for loop centroid data, find distane b/w and if it < 8.5
+#     	not include 2 interacting HOH and same residues
+#     '''
+#     with open(re.sub(".pdb","",file1)+"_centroidNetSC",'w') as out:
+#         for residue1 in sorted(centroid.keys()):
+#             for residue2 in sorted(centroid.keys()):
+#                 if "HOH" in residue1 and "HOH" in residue2:
+#                     continue
+#                 if residue1==residue2:
+#                     continue
+#                 x = MDdist3D(np.array(centroid[residue1]),np.array(centroid[residue2])) 
+#                 if x < 8.5:
+#                     out.write(re.sub("-","",residue1)+"\t"+re.sub("-","",residue2)+"\t"+"SCSC"+"\t"+"1"+"\t"+"CENTROID\t"+"CENTROID\t"+"CENTROID\t"+str(x)+"\n")
+#     '''
+#     find the shortest distance b/w centroid and ligand
+#     '''
+#     with open(re.sub(".pdb","",file1)+"_centroidNetLigand",'w') as out:
+#         for residue1 in centroid.keys():
+#             if "HOH" in residue1:
+#                 continue
+#             tmpdist0 = 150
+#             for ligand in sorted(ligandCentroids.keys()):
+#                 tmpdist1 = MDdist3D(np.array(centroid[residue1]),ligandCentroids[ligand])
+#                 if tmpdist1 > tmpdist0:
+#                     continue
+#                 out.write(re.sub("-","",residue1)+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
+#                 tmpdist0 = float(copy.copy(tmpdist1))   
 
+def find_centroid_bonds(file1, centroid_coords):
+	# file1 in format "4eiy"
+    # dont consider WATER molecules and same residues
+	with open(file1+'_centroidNetSC', 'w') as out:
+		for i in centroid_coords.keys():
+			for j in centroid_coords.keys():
+				if i == j:
+					continue
+				dist = MDdist3D(centroid_coords[i], centroid_coords[j])
+				if dist < 8.5:
+					out.write(re.sub(':','',i)+'\t'+re.sub(':','',j)+'\tSCSC\t'+'1'+'\tCENTROID\tCENTROID\tCENTROID\t'+str(dist)+'\n')
+	   
+def find_centroid_ligand_bonds(file1, centroid_coords):
+    distances = {}
+	with open(file1+'_centroidNetLigand', 'w') as out:
+		for centroid in centroid_coords.keys():
+			distances[centroid] = {}
+			distances[centroid]['dist'] = cutoff = 150
+			distances[centroid]['ligand'] = ''
+			for ligand in ligand_centroids.keys():
+				dist = MDdist3D(ligand_centroids[ligand], centroid_coords[centroid])
+				if dist > distances[centroid]['dist']:
+					continue
+				distances[centroid]['dist'] = dist
+				distances[centroid]['ligand'] = ligand
+			out.write(''.join(centroid.split(':'))+'\t'+''.join((distances[centroid]['ligand']).split(':'))+'\t'+str(distances[centroid]['dist'])+'\n')
+   
 
 # TODO: not clear
 def pdb2peptide(file1):
