@@ -28,6 +28,14 @@ STRAIGHT_ANGLE = 180
 RIGHT_ANGLE = 90
 ZERO_ANGLE = 0
 
+seq_dist_cutoff = 1
+H_A_dist_cutoff = 3.5 # used in hydrogen bonds as hydrogen-acceptor dist cutoff
+D_A_dist_cutoff = 4.6 # used in hydrogen bonds as donor-acceptor dist cutoff
+hb_d1 = 2.5; hb_d11 = 3.2; hb_d12 = 3.3
+hb_d2 = 3.9; hb_d21 = 4.1; hb_d22 = 4.5
+
+ligand_dist = 150
+centroid_dist = 8.5
 
 def energy_vdw(rm, r): # energy formula for vdw bonds
     # rm - distance b/w 2 atoms
