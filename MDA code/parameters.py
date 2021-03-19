@@ -68,7 +68,7 @@ area = {'ALA': 118.1, 'ARG': 256.0, 'ASN': 165.5, 'ASP': 158.7, 'CYS': 146.1, 'G
 #         E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)
 #         return E
 
-def calc_norm_vecs(acid, res_com, origin):
+def calc_norm_vecs(res_com, origin):
     '''Function used in calc origin, normals for pipi, pication
     acid - mda.residue object
     res_com - mda.selection
@@ -81,7 +81,7 @@ def calc_norm_vecs(acid, res_com, origin):
         a = normalize(res_com.positions[i::num] - res_com.positions[(i+2)%num::num])
         b = normalize(res_com.positions[(i+1)%num::num] - res_com.positions[(i+2)%num::num])
         normalVec = np.cross(a, b)
-        for j in range(len(origin)):
+        for j in range(len([origin])):
             if normalVec[j][0]<0:
                 normalVec[j] = normalVec[j]*-1
         vec+=normalVec/num
@@ -90,20 +90,24 @@ def calc_norm_vecs(acid, res_com, origin):
 
 def isNeighbor(atom1,atom2):
   # figure out whether 2 atoms are neighbors if aminoacid ids differ by 1
-    if len(atom1.split('-')) == 4 :
-        index1 = -int(atom1.split('-')[2][0:-1])
-    else: index1 = atom1.split('-')[1][0:-1]
-    if len(atom2.split('-')) == 4:
-        index2 = -int(atom2.split('-')[2][0:-1])
+    if len(atom1.split(':')) == 4 :
+        # index1 = -int(atom1.split(':')[2][0:-1])
+        index1 = -int(atom1.split(':')[1])
+    else: index1 = atom1.split(':')[1][0:-1]
+    if len(atom2.split(':')) == 4:
+        # index2 = -int(atom2.split(':')[2][0:-1])
+        index2 = -int(atom2.split(':')[1])
     else:
-        index2 = atom2.split('-')[1][0:-1]
+        index2 = atom2.split(':')[1][0:-1]
     if abs(int(index1) - int(index2)) == 1:
         return True
     else: return False
     
-# aminoacids variants
+# aminoacids variations
+# normVec4acids = {} # maybe create dict of acids and atoms for normalVecPIPI
+his = ['HIS', 'HISD', 'HISE', 'HISH', 'HIS1']
 salt_aa = ['ARG', 'ARGN', 'LYS', 'LYSN', 'HIS', 'HISD', 'HISE', 'HISH', 'HIS1', 'ASP', 'ASPH', 'GLU', 'GLUH']
-pication_aa = ['HIS','HISD', 'HISE', 'HISH', 'HIS1', 'TYR', 'TRP', 'PHE']
+pication_aa = his + ['TYR', 'TRP', 'PHE']
 cation_aa = ['ARG', 'ARGN', 'LYS', 'LYSN']
 disulf_aa = ['CYS', 'CYS2']
 basic_salt_aa = ['ARG', 'ARGN', 'LYS', 'HIS', 'HISD', 'HISE', 'HISH', 'HIS1']
@@ -112,31 +116,6 @@ acidic_salt_aa = ['ASP', 'ASPH', 'GLU', 'GLUH']
 def normalize(a):
     return [a[i] / np.linalg.norm(a[i]) for i in range(len(a))]
 
-
-def getTotalResidue(u, flag=True):
-  '''
-  u - Universe.select_atoms() choose backbone or atoms
-  flag - use all lines in pdb if True; else set(lines)
-  Return residue names
-  '''
-  residues = []
-  if flag == True: #HIS-26A-; HIS-26A-; etc
-    for res, id, seg in zip(u.atoms.resnames, u.atoms.resids, u.atoms.segids):
-      out = res + '-' + str(id) + seg + '-'
-      residues.append(out)
-  else: # HIS-26A; PRO-27A etc
-    for res, id, seg in zip(u.residues.resnames, u.residues.resids, u.residues.segids):
-      out = res + '-' + str(id) + seg
-      residues.append(out)
-  return residues
-
-def getTotalResidue1(u):
-  residues = []
-  for res, id, seg in zip(u.residues.resnames, u.residues.resids, u.residues.segids):
-      out = res + '_' + str(id) + seg
-      residues.append(out)
-  return residues
-  
 # HYDROGEN BONDS
 donor_dict = {'HIS' : {'ND1': ['CG', 'CE1'], 
                     'NE2': ['CD2', 'CE1']},
@@ -168,9 +147,9 @@ def normalDonorVecToPlane1(A, coords):
     calculate coords of normal to donor acid
     Take as input name of Donor (A) and coord dictionary
     '''
-    res = '-'.join(A.split('-')[0:2]) + '-'
-    r = A.split('-')[0]
-    atom = A.split('-')[2]
+    res = ':'.join(A.split(':')[0:3]) + ':'
+    r = A.split(':')[0]
+    atom = A.split(':')[3]
     if (r in donor_dict and atom in donor_dict[r]):
         a1, a2 =donor_dict[r][atom]
         a = coords[res+a1] - coords[res+atom]
@@ -190,9 +169,9 @@ def normalAcceptorVecToPlane1(A, coords):
     calculate coords of normal to Acceptor acid
     Take as input name of Acceptor (A) and coord dictionary
     '''
-    res = '-'.join(A.split('-')[0:2]) + '-'
-    r = A.split('-')[0]
-    atom = A.split('-')[2]
+    res = ':'.join(A.split(':')[0:3]) + ':'
+    r = A.split(':')[0]
+    atom = A.split(':')[3]
     if (r in acceptor_dict and atom in acceptor_dict[r]):
         a1, a2 = acceptor_dict[r][atom]
         a = coords[res+a1] - coords[res+atom]
@@ -209,74 +188,95 @@ def normalAcceptorVecToPlane1(A, coords):
 
 # Define dictionaries for hydrogen bonds search
 hydrogen = {
-"ARG-H": "N", "ARG-HE": "NE", "ARG-HH11": "NH1", "ARG-HH12": "NH1", "ARG-HH21": "NH2", "ARG-HH22": "NH2",
-"HIS-H": "N", "HIS-HE1": "NE2",
-"LYS-H": "N", "LYS-HZ1": "NZ", "LYS-HZ2": "NZ", "LYS-HZ3": "NZ",
-"ASP-H": "N",
-"GLU-H": "N",
-"SER-H": "N", "SER-HG": "OG",
-"THR-H": "N", "THR-HG1": "OG1",
-"ASN-H": "N", "ASN-HD21": "ND2", "ASN-HD22": "ND2",
-"GLN-H": "N", "GLN-HE21": "NE2", "GLN-HE22": "NE2",
-"CYS-H": "N", "CYS-HG": "SG",
-"SEC-H": "N",
-"GLY-H": "N",
-"ALA-H": "N",
-"VAL-H": "N",
-"ILE-H": "N",
-"LEU-H": "N",
-"MET-H": "N",
-"PHE-H": "N",
-"TYR-H": "N", "TYR-HH": "OH",
-"TRP-H": "N", "TRP-HE1": "NE1",
-"HOH-H1": "O", "HOH-H2": "O"}
+"ARG:H": "N", "ARG:HE": "NE", "ARG:HH11": "NH1", "ARG:HH12": "NH1", "ARG:HH21": "NH2", "ARG:HH22": "NH2",
+"HIS:H": "N", "HIS:HE1": "NE2",
+"LYS:H": "N", "LYS:HZ1": "NZ", "LYS:HZ2": "NZ", "LYS:HZ3": "NZ",
+"ASP:H": "N",
+"GLU:H": "N",
+"SER:H": "N", "SER:HG": "OG",
+"THR:H": "N", "THR:HG1": "OG1",
+"ASN:H": "N", "ASN:HD21": "ND2", "ASN:HD22": "ND2",
+"GLN:H": "N", "GLN:HE21": "NE2", "GLN:HE22": "NE2",
+"CYS:H": "N", "CYS:HG": "SG",
+"SEC:H": "N",
+"GLY:H": "N",
+"ALA:H": "N",
+"VAL:H": "N",
+"ILE:H": "N",
+"LEU:H": "N",
+"MET:H": "N",
+"PHE:H": "N",
+"TYR:H": "N", "TYR:HH": "OH",
+"TRP:H": "N", "TRP:HE1": "NE1",
+"HOH:H1": "O", "HOH:H2": "O"}
 
 nextAcid = {
-"ARG-N": ["CA"],"ARG-NE": ["CD","CZ"], "ARG-NH1": ["CZ"], "ARG-NH2": ["CZ"], "ARG-O": ["C"],
-"HIS-N": ["CA"], "HIS-NE2": ["CG","CE1"], "HIS-ND1": ["CD2","CE1"], "HIS-O": ["C"],
-"LYS-N": ["CA"], "LYS-NZ": ["CE"], "LYS-O": ["C"],
-"ASP-N": ["CA"], "ASP-OD1": ["CG"], "ASP-OD2": ["CG"], "ASP-O": ["C"],
-"GLU-N": ["CA"], "GLU-OE1": ["CD"], "GLU-OE2": ["CD"], "GLU-O": ["C"],
-"SER-N": ["CA"], "SER-OG": ["CB"], "SER-O": ["C"],
-"THR-N": ["CA"], "THR-OG1": ["CB"], "THR-O": ["C"],
-"ASN-N": ["CA"], "ASN-OD1": ["CG"], "ASN-ND2": ["CG"], "ASN-O": ["C"],
-"GLN-N": ["CA"], "GLN-OE1": ["CD"], "GLN-NE2": ["CD"], "GLN-O": ["C"],
-"CYS-N": ["CA"], "CYS-O": ["C"], "CYS-SG": ["CB"],
-"SEC-N": ["CA"], "SEC-O": ["C"],
-"GLY-N": ["CA"], "GLY-O": ["C"],
-"PRO-N": ["CA","CB"],"PRO-O": ["C"],
-"ALA-N": ["CA"], "ALA-O": ["C"],
-"VAL-N": ["CA"], "VAL-O": ["C"],
-"ILE-N": ["CA"], "ILE-O": ["C"],
-"LEU-N": ["CA"], "LEU-O": ["C"],
-"MET-N": ["CA"], "MET-O": ["C"], "MET-SD": ["CG","CE"],
-"PHE-N": ["CA"], "PHE-O": ["C"],
-"TYR-N": ["CA"], "TYR-OH": ["CZ"], "TYR-O": ["C"],
-"TRP-N": ["CA"], "TRP-NE1": ["CD1","CE2"], "TRP-O": ["C"],
-"HOH-O": ["H1","H2"]
+"ARG:N": ["CA"],"ARG:NE": ["CD","CZ"], "ARG:NH1": ["CZ"], "ARG:NH2": ["CZ"], "ARG:O": ["C"],
+"HIS:N": ["CA"], "HIS:NE2": ["CG","CE1"], "HIS:ND1": ["CD2","CE1"], "HIS:O": ["C"],
+"LYS:N": ["CA"], "LYS:NZ": ["CE"], "LYS:O": ["C"],
+"ASP:N": ["CA"], "ASP:OD1": ["CG"], "ASP:OD2": ["CG"], "ASP:O": ["C"],
+"GLU:N": ["CA"], "GLU:OE1": ["CD"], "GLU:OE2": ["CD"], "GLU:O": ["C"],
+"SER:N": ["CA"], "SER:OG": ["CB"], "SER:O": ["C"],
+"THR:N": ["CA"], "THR:OG1": ["CB"], "THR:O": ["C"],
+"ASN:N": ["CA"], "ASN:OD1": ["CG"], "ASN:ND2": ["CG"], "ASN:O": ["C"],
+"GLN:N": ["CA"], "GLN:OE1": ["CD"], "GLN:NE2": ["CD"], "GLN:O": ["C"],
+"CYS:N": ["CA"], "CYS:O": ["C"], "CYS:SG": ["CB"],
+"SEC:N": ["CA"], "SEC:O": ["C"],
+"GLY:N": ["CA"], "GLY:O": ["C"],
+"PRO:N": ["CA","CB"],"PRO:O": ["C"],
+"ALA:N": ["CA"], "ALA:O": ["C"],
+"VAL:N": ["CA"], "VAL:O": ["C"],
+"ILE:N": ["CA"], "ILE:O": ["C"],
+"LEU:N": ["CA"], "LEU:O": ["C"],
+"MET:N": ["CA"], "MET:O": ["C"], "MET:SD": ["CG","CE"],
+"PHE:N": ["CA"], "PHE:O": ["C"],
+"TYR:N": ["CA"], "TYR:OH": ["CZ"], "TYR:O": ["C"],
+"TRP:N": ["CA"], "TRP:NE1": ["CD1","CE2"], "TRP:O": ["C"],
+"HOH:O": ["H1","H2"]
 }
 
 # check if acid+atom is Acceptor 
-def isAcceptor(atom):
-    SCacceptors = ["ASN-OD1","ASP-OD1","ASP-OD2","GLN-OE1","GLU-OE1","GLU-OE2","HIS-ND1","HIS-NE2","SER-OG","THR-OG1","TYR-OH","CYS-SG","HOH-O"]
-    MCacceptors = ["ARG-O","HIS-O","LYS-O","ASP-O","GLU-O","SER-O","THR-O","ASN-O","GLN-O","CYS-O","SEC-O","GLY-O","PRO-O","ALA-O","VAL-O","ILE-O","LEU-O","MET-O","PHE-O","TYR-O","TRP-O"]
-    if atom.split("-")[0]+"-"+atom.split("-")[2] in SCacceptors or atom.split("-")[0]+"-"+atom.split("-")[2] in MCacceptors:
-        return(True)
-    else:
-        return(False)
-# check if acid+atom is Donor
-def isDonor(atom):
-    SCdonors = ["ARG-NE","ARG-NH1","ARG-NH2","ASN-ND2","GLN-NE2","HIS-ND1","HIS-NE2","LYS-NZ","SER-OG","THR-OG1","TRP-NE1","TYR-OH","CYS-SG","HOH-O"]
-    MCdonors = ["ARG-N","HIS-N","LYS-N","ASP-N","GLU-N","SER-N","THR-N","ASN-N","GLN-N","CYS-N","SEC-N","GLY-N","PRO-N","ALA-N","VAL-N","ILE-N","LEU-N","MET-N","PHE-N","TYR-N","TRP-N"]
-    if atom.split("-")[0]+"-"+atom.split("-")[2] in SCdonors or atom.split("-")[0]+"-"+atom.split("-")[2] in MCdonors:
+def isAcceptor(elem):
+    acid = elem.split(':')[0]
+    atom = elem.split(':')[3]
+    SCacceptors = ["ASN:OD1","ASP:OD1","ASP:OD2","GLN:OE1","GLU:OE1","GLU:OE2","HIS:ND1","HIS:NE2","SER:OG","THR:OG1","TYR:OH","CYS:SG","HOH:O"]
+    MCacceptors = ["ARG:O","HIS:O","LYS:O","ASP:O","GLU:O","SER:O","THR:O","ASN:O","GLN:O","CYS:O","SEC:O","GLY:O","PRO:O","ALA:O","VAL:O","ILE:O","LEU:O","MET:O","PHE:O","TYR:O","TRP:O"]
+    # if atom.split(':')[0]+':'+atom.split(':')[2] in SCacceptors or atom.split(':')[0]+':'+atom.split(':')[2] in MCacceptors:
+    #     return(True)
+    # else:
+    #     return(False)
+    if acid+':'+atom in SCacceptors or acid+':'+atom in MCacceptors:
         return(True)
     else:
         return(False)
 
+
+# check if acid+atom is Donor
+def isDonor(elem):
+    acid = elem.split(':')[0]
+    atom = elem.split(':')[3]
+    SCdonors = ["ARG:NE","ARG:NH1","ARG:NH2","ASN:ND2","GLN:NE2","HIS:ND1","HIS:NE2","LYS:NZ","SER:OG","THR:OG1","TRP:NE1","TYR:OH","CYS:SG","HOH:O"]
+    MCdonors = ["ARG:N","HIS:N","LYS:N","ASP:N","GLU:N","SER:N","THR:N","ASN:N","GLN:N","CYS:N","SEC:N","GLY:N","PRO:N","ALA:N","VAL:N","ILE:N","LEU:N","MET:N","PHE:N","TYR:N","TRP:N"]
+    # if atom.split(':')[0]+':'+atom.split(':')[2] in SCdonors or atom.split(':')[0]+':'+atom.split(':')[2] in MCdonors:
+    #     return(True)
+    # else:
+    #     return(False)
+    if acid+':'+atom in SCdonors or acid+':'+atom in MCdonors:
+        return(True)
+    else:
+        return(False)
+
+
+
 # return type of hybridization
-def SPHyb(atom):
-    atom = atom.split("-")
-    if (atom[0]=="SER" and atom[2]=="OG") or (atom[0]=="THR" and atom[2]=="OG1") or (atom[0]=="CYS" and atom[2]=="SG") or (atom[0]=="LYS" and atom[2]=="NZ") or (atom[0]=="HOH" and atom[2]=="O"):
+def SPHyb(elem):
+    acid = elem.split(':')[0]
+    atom = elem.split(':')[3]
+    if ((acid=="SER" and atom=="OG") or 
+        (acid=="THR" and atom=="OG1") or 
+        (acid=="CYS" and atom=="SG") or 
+        (acid=="LYS" and atom=="NZ") or 
+        (acid=="HOH" and atom=="O")):
         return("SP3")
     else:
         return("SP2")
