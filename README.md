@@ -1,12 +1,14 @@
 https://github.com/UranMai/Master-project/wiki
 
+[Table of scores for pdb files](https://docs.google.com/spreadsheets/d/1yw6UrDWWLijt33x4wO3tos4vh2gZ82rbPHki_DIy9uE/edit?usp=sharing)
+
 ### Preprocessing PDB file
 1. Install **Stride** from [here](http://webclu.bio.wzw.tum.de/stride/install.html) and copy binary file stride to `usr/local/bin`
 2. Install **Phenix** from [here](https://www.mrc-lmb.cam.ac.uk/public/xtal/doc/phenix/install-setup-run.html)
 3. Run ```bash preprocess.sh PDBfile```
 
 
-[phenix.reduce](https://www.mrc-lmb.cam.ac.uk/public/xtal/doc/phenix/reference/hydrogens.html)
+Info about [phenix.reduce](https://www.mrc-lmb.cam.ac.uk/public/xtal/doc/phenix/reference/hydrogens.html)
 
 ### Run code
 ```
