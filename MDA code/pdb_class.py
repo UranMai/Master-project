@@ -26,37 +26,27 @@ import parameters as prs
 # TODO: refactor function names in common ways, e.g. prepare_secondary_structure_file(...) and prepare_rsa_file(...)
 # TODO: why do we need pdb file here?
 
-def prepare_secondary_structure_file(file1, phi_file):
+def prepare_secondary_structure_file(pdb_file, phi_file):
     '''
     @description
      	Read pdb and phi file. Extract phi angles and secondary Structures of each acid from phi file
     @input
-    	file1 - pdb file, ex. 4eiy.pdb
-	phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
+    	pdb_file - pdb file, ex. 4eiy.pdb
+		phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
     @output 
         secondary structure files, ex. 4eiy_secondaryStructure
     '''
 	if os.path.exists(phi_file):
         phifile = open(phi_file, 'r').readlines()
+		phi_data = [phi for phi in phifile if 'ASG' in phi]
     else:
         return 'Need secondary structure PHI file'
 	
-    secStructure = open(file1.replace('.pdb','')+'_secondaryStructure', 'w')
+    secStructure = open(pdb_file.replace('.pdb','')+'_secondaryStructure', 'w')
     
     phi = {} 
     counter = 0
-    currentSecStructure = ""
-    prevStruct = ''
-    # define prevStruct and change it 
-    for line in phifile:
-        if line[0:3]=="ASG":
-            prevStruct = line[33:42].strip()
-            break
-    if prevStruct == "Coil" or prevStruct == "Bridge":
-        prevStruct = "CoilA"
-    if prevStruct == "Turn":
-        prevStruct = "TurnA"
-
+    currentSecStructure = ''
     currentAngle = -1
     ''' 
     1. go through phi file and define prevStruct as first ASG line
@@ -65,78 +55,79 @@ def prepare_secondary_structure_file(file1, phi_file):
     4. if residue is PRO and structure is not aHelix and (next line not last and next structure is not aHelix), secStruct=new struct
     5. Rename structure
     '''
-    for i in range(len(phifile)):
-        line = phifile[i]   
-        if line[0:3]=="ASG":
-            res = line[5:8]
-            resid = line[11:15].strip()
-            segid = line[9]
-            phi_angle = float(line[42:50].strip())
-            structure = line[33:42].strip()
-            phi[res+resid+segid] = phi_angle
-            secStruct = structure
+    for i in range(len(phi_data)):
+		if i == 0:
+			prevStruct = phi_data[0][33:42].strip()
+            if prevStruct == 'Coil' or prevStruct == 'Bridge':
+                prevStruct = 'CoilA'
+            elif prevStruct == 'Turn':
+                prevStrcut = 'TurnA'
+		
+		line = phifile[i]   
+		res, resid, segid = line[5:8].strip(), line[11:15].strip(), line[9]
+		phi_angle, structure = float(line[42:50].strip()), line[33:42].strip()
+		phi[res+resid+segid] = phi_angle
+		secStruct = structure
 
-            if res == 'PRO' and structure != 'aHelix':
-                if i+1 != len(phifile) and phifile[i+1][33:42].strip() != "aHelix":
-                    secStruct = phifile[i+1][33:42].strip()
-            if secStruct=="Bridge" or secStruct=="Coil":
-                if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
-                    (phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
-                    (phi_angle== prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
+		if res == 'PRO' and structure != 'aHelix':
+			if i+1 != len(phi_data) and phi_data[i+1][33:42].strip() != "aHelix":
+				secStruct = phi_data[i+1][33:42].strip()
+		if secStruct=="Bridge" or secStruct=="Coil":
+			if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
+				(phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
+				(phi_angle== prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
 
-                    if prevStruct == "CoilA":
-                        secStruct="CoilA"; prevStruct = "CoilA"
-                    else:
-                        secStruct="CoilB"; prevStruct = "CoilB"
+				if prevStruct == "CoilA":
+					secStruct="CoilA"; prevStruct = "CoilA"
+				else:
+					secStruct="CoilB"; prevStruct = "CoilB"
 
-                elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
-                      (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or  
-                      (phi_angle== prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
-                    
-                    if prevStruct == "CoilA":
-                        secStruct="CoilB"; prevStruct = "CoilB"
-                    else:
-                        secStruct="CoilA"; prevStruct = "CoilA"
+			elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
+				  (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or  
+				  (phi_angle== prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
 
-            if secStruct=="Turn":
-                if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
-                    (phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
-                    (phi_angle==prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
+				if prevStruct == "CoilA":
+					secStruct="CoilB"; prevStruct = "CoilB"
+				else:
+					secStruct="CoilA"; prevStruct = "CoilA"
 
-                    if prevStruct == "TurnA":
-                        secStruct="TurnA"; prevStruct = "TurnA"
-                    else:
-                        secStruct="TurnB"; prevStruct = "TurnB"
+		if secStruct=="Turn":
+			if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
+				(phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
+				(phi_angle==prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
 
-                elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
-                      (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or
-                      (phi_angle==prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
-                    
-                    if prevStruct == "TurnA":
-                        secStruct="TurnB"; prevStruct = "TurnB"
-                    else:
-                        secStruct="TurnA"; prevStruct = "TurnA"
+				if prevStruct == "TurnA":
+					secStruct="TurnA"; prevStruct = "TurnA"
+				else:
+					secStruct="TurnB"; prevStruct = "TurnB"
 
-            if ("Coil" in secStruct or "Turn" in secStruct) and (res=="GLY" and phi_angle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE):
-                phiangle = phi_angle
-                if phiangle==prs.FULL_ANGLE:
-                    phiangle=0
-                secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
-                currentSecStructure = secStruct                
-                counter+=1
-            elif secStruct != currentSecStructure:
-                counter+=1
-                phiangle = line[42:51].strip()
-                if float(phiangle)==prs.FULL_ANGLE:
-                    phiangle=0
-                secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
-                currentSecStructure = secStruct
-            else:
-                secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phi_angle)+"\n")
-            currentAngle = phi_angle
-            if currentAngle==prs.FULL_ANGLE:
-                curentAngle=-1
-    secStructure.close()
+			elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
+				  (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or
+				  (phi_angle==prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
+
+				if prevStruct == "TurnA":
+					secStruct="TurnB"; prevStruct = "TurnB"
+				else:
+					secStruct="TurnA"; prevStruct = "TurnA"
+
+		if ("Coil" in secStruct or "Turn" in secStruct) and (res=="GLY" and phi_angle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE):
+			phiangle = phi_angle
+			secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
+			currentSecStructure = secStruct                
+			counter+=1
+		elif secStruct != currentSecStructure:
+			counter+=1
+			phiangle = line[42:51].strip()
+			if float(phiangle)==prs.FULL_ANGLE:
+				phiangle=0
+			secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
+			currentSecStructure = secStruct
+		else:
+			secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phi_angle)+"\n")
+		currentAngle = phi_angle
+		if currentAngle==prs.FULL_ANGLE:
+			curentAngle=-1
+	secStructure.close()
 
     #Version 2 of secondary structure
 #     secStructure2 = open(file1.replace(".pdb","")+"_secondaryStructure2",'w')
