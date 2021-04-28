@@ -32,7 +32,7 @@ def prepare_secondary_structure_file(pdb_file, phi_file):
      	Read pdb and phi file. Extract phi angles and secondary Structures of each acid from phi file
     @input
     	pdb_file - pdb file, ex. 4eiy.pdb
-		phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
+	phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
     @output 
         secondary structure files, ex. 4eiy_secondaryStructure
     '''
@@ -56,14 +56,11 @@ def prepare_secondary_structure_file(pdb_file, phi_file):
     5. Rename structure
     '''
     for i in range(len(phi_data)):
-		if i == 0:
-			prevStruct = phi_data[0][33:42].strip()
-            if prevStruct == 'Coil' or prevStruct == 'Bridge':
-                prevStruct = 'CoilA'
-            elif prevStruct == 'Turn':
-                prevStrcut = 'TurnA'
-		
-		line = phifile[i]   
+	    if i == 0:	prevStruct = phi_data[0][33:42].strip()
+	    if prevStruct == 'Coil' or prevStruct == 'Bridge':	prevStruct = 'CoilA'
+	    elif prevStruct == 'Turn':	prevStrcut = 'TurnA'
+
+		line = phi_data[i]   
 		res, resid, segid = line[5:8].strip(), line[11:15].strip(), line[9]
 		phi_angle, structure = float(line[42:50].strip()), line[33:42].strip()
 		phi[res+resid+segid] = phi_angle
