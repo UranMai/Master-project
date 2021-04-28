@@ -36,3 +36,19 @@ Before using code, pdb file need in preprocessing.
 | 6vxx.pdb | ~3200s | ~600s | 
 | 1BTL.pdb | ~40s | ~16s |
 | 4eiy.pdb | ~100s | ~30s |
+
+
+### [PDBFixer](https://htmlpreview.github.io/?https://github.com/openmm/pdbfixer/blob/master/Manual.html)
+#### Installation in Colab
+```
+pip install -q condacolab
+```
+```
+import condacolab
+condacolab.install_miniconda()
+```
+```
+conda install -y -q -c conda-forge openmm
+git clone https://github.com/openmm/pdbfixer.git
+python setup.py install
+```
