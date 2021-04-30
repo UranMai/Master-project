@@ -13,16 +13,16 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.simplefilter(action='ignore', category=FutureWarning)
 # pip install --upgrade MDAnalysisTests
-## from MDAnalysis.tests.datafiles import PDB, XTC
+# from MDAnalysis.tests.datafiles import PDB, XTC
 
 
 # Input data, same as PDB, XTC from tests.datafiles
 # https://github.com/MDAnalysis/mdanalysis/blob/develop/testsuite/MDAnalysisTests/data/adk_oplsaa.pdb
 # https://github.com/MDAnalysis/mdanalysis/blob/develop/testsuite/MDAnalysisTests/data/adk_oplsaa.xtc
-PDB = 'adk_oplsaa.pdb' # 
+PDB = 'adk_oplsaa.pdb'  
 XTC = 'adk_oplsaa.xtc'
-PHI = 'adk_oplsaa.phi'
-# phifile = file1.replace('.pdb', '.phi')
+# PHI = 'adk_oplsaa.phi'
+PHI= PDB.replace('.pdb', '.phi')
 
 u = mda.Universe(PDB, XTC)
 prot = u.select_atoms('protein')
@@ -62,16 +62,11 @@ for cluster in cluster_collection.clusters:
     centroids.append(cluster.centroid)
     print(f'Cluster {cluster.id} has {cluster.size} elements. Frame {cluster.centroid} is cluster centroid')
 
-
+# For selected time steps create dict of atoms positions
 frames_dict = {}
 for ts in u.trajectory:
-#     frames_dict[ts.frame] = u.atoms.positions
-#     break
-# # print(frames_dict)
     if ts.frame in centroids:
         frames_dict[ts.frame] = u.atoms.positions
-
-
 
 # if __name__ == '__main__':
 prepare_secondary_structure_file(PDB, PHI)
@@ -79,18 +74,21 @@ prepare_rsa_file(PDB, PHI)
 
 def create_net_files(ts, frames_dict):
     '''
-    ts - time step of mda trajectories
-    frames_dict - data with positions for time step
-
-    for each ts we run whole processing creating net file
+    @description
+        Create final data with all interactions on each time step
+        -Define Universe and other common variables for each time step
+        -
+    @input
+        ts - time step of MD trajectory
+        frames_dict - data with atoms positions of MD trajectory
     '''
-    file1 = f'adk_{ts}.pdb'
+    file1 = PDB.replace('.pdb', f'_{ts}.pdb')
+
     u = mda.Universe(PDB, frames_dict[ts])
     u1 = u.select_atoms('protein') 
 
     u1_atoms = u1.atoms
     u1_resnames, u1_resids, u1_segids, u1_names = u1_atoms.resnames, u1_atoms.resids, u1_atoms.segids, u1_atoms.names
-
 
     residues = [(i+':'+str(j)+':'+k) for i, j, k in zip(u1_atoms.resnames, u1_atoms.resids, u1_segids)]
     coords = {res+':'+atom : pos for res, atom, pos in zip(residues, u1_names, u1.atoms.positions)}
@@ -105,10 +103,10 @@ def create_net_files(ts, frames_dict):
             chain[res+':'+atom] = 'SC'
 
     acids_class = [AminoAcid(res) for res in u1.residues]
-
     
     # Writing files for PIPI,PICation, SB, Disulfide bonds
     net = open(file1.replace('.pdb', '_bonds'), 'w')
+    # net = open(file1+'_bonds', 'w')
     for i in range(len(acids_class)):
         for j in range(i+1, len(acids_class)):
             bonds = find_pipi_bonds(acids_class[i], acids_class[j])
@@ -119,7 +117,6 @@ def create_net_files(ts, frames_dict):
             if bonds: 
                 for bond in bonds:
                     net.write(bond)
-            # saltBrdiges = []
             bonds = find_salt_bridges(acids_class[i], acids_class[j])
             if bonds: 
                 for bond in bonds:
@@ -152,6 +149,7 @@ def create_net_files(ts, frames_dict):
 
     # Concatenate created files into one 
     pdb = file1.replace('.pdb', '')
+    # pdb = file1
     cmd = f'cat {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw_noRepulse2 {pdb}_metal > {pdb}_net'
     os.system(cmd) 
 
@@ -159,11 +157,37 @@ def create_net_files(ts, frames_dict):
     cmd = f'rm {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw_noRepulse2 {pdb}_metal {pdb}_vdw {pdb}_vdw2'
     os.system(cmd)
 
+    # Search ligand interactions
+    hoh_atoms =  u.select_atoms('resname HOH')
+    metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
+    protein = u.select_atoms('protein')
+    allatoms = u.select_atoms('all')
 
+    ligands = u.select_atoms('not protein and not resname HOH') - metalls
+    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
+    ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='residues')))
+
+    # ligands = allatoms - protein - hoh_atoms - metalls
+    # ligandCentroids = ligands.center_of_geometry(compound='residues')
+    # ligandCentroids  = dict(zip(prs.getTotalResidue(ligands, flag=False), ligandCentroids))
+
+    centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') 
+    # calc weighted center of residues, where centroid_data.masses are weights
+    # centroid_data = u.select_atoms('protein and not backbone')
+    center_coords = centroid_data.center(centroid_data.masses, compound='residues')
+    centroid = centroid_data.residues
+    centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
+    centroid_coords = dict(zip(centroid_names, center_coords))
+    print(f'Finish {ts}')
+    # find_ligand_atom_bonds(file1, residues, u1_names, ligand_centroids, chain, coords) #why slow??
+    # print(f'Finish2 {ts}s')
+    # find_centroid_bonds(pdb, centroid_coords) #works
+    # find_centroid_ligand_bonds(pdb, centroid_coords, ligand_centroids) #works
+    print('End')
 
 for ts in frames_dict.keys(): # iterate over most valuable time steps
     create_net_files(ts, frames_dict) # call function to create file with interactions, then run network analysis
-    cmd = "sed -i 's/SYSTEM/-/g' adk_{}_net".format(ts)
+    cmd = f"sed -i 's/SYSTEM/-/g' adk_oplsaa_{ts}_net"
     os.system(cmd)
 
 

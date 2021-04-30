@@ -29,19 +29,19 @@ import parameters as prs
 def prepare_secondary_structure_file(pdb_file, phi_file):
     '''
     @description
-     	Read pdb and phi file. Extract phi angles and secondary Structures of each acid from phi file
+        Read pdb and phi file. Extract phi angles and secondary Structures of each acid from phi file
     @input
-    	pdb_file - pdb file, ex. 4eiy.pdb
-	phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
+        pdb_file - pdb file, ex. 4eiy.pdb
+    phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
     @output 
         secondary structure files, ex. 4eiy_secondaryStructure
     '''
-	if os.path.exists(phi_file):
+    if os.path.exists(phi_file):
         phifile = open(phi_file, 'r').readlines()
-		phi_data = [phi for phi in phifile if 'ASG' in phi]
+        phi_data = [phi for phi in phifile if 'ASG' in phi]
     else:
         return 'Need secondary structure PHI file'
-	
+    
     secStructure = open(pdb_file.replace('.pdb','')+'_secondaryStructure', 'w')
     
     phi = {} 
@@ -56,75 +56,75 @@ def prepare_secondary_structure_file(pdb_file, phi_file):
     5. Rename structure
     '''
     for i in range(len(phi_data)):
-	    if i == 0:	prevStruct = phi_data[0][33:42].strip()
-	    if prevStruct == 'Coil' or prevStruct == 'Bridge':	prevStruct = 'CoilA'
-	    elif prevStruct == 'Turn':	prevStrcut = 'TurnA'
+        if i == 0:  prevStruct = phi_data[0][33:42].strip()
+        if prevStruct == 'Coil' or prevStruct == 'Bridge':  prevStruct = 'CoilA'
+        elif prevStruct == 'Turn':  prevStrcut = 'TurnA'
 
-		line = phi_data[i]   
-		res, resid, segid = line[5:8].strip(), line[11:15].strip(), line[9]
-		phi_angle, structure = float(line[42:50].strip()), line[33:42].strip()
-		phi[res+resid+segid] = phi_angle
-		secStruct = structure
+        line = phi_data[i]   
+        res, resid, segid = line[5:8].strip(), line[11:15].strip(), line[9]
+        phi_angle, structure = float(line[42:50].strip()), line[33:42].strip()
+        phi[res+resid+segid] = phi_angle
+        secStruct = structure
 
-		if res == 'PRO' and structure != 'aHelix':
-			if i+1 != len(phi_data) and phi_data[i+1][33:42].strip() != "aHelix":
-				secStruct = phi_data[i+1][33:42].strip()
-		if secStruct=="Bridge" or secStruct=="Coil":
-			if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
-				(phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
-				(phi_angle== prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
+        if res == 'PRO' and structure != 'aHelix':
+            if i+1 != len(phi_data) and phi_data[i+1][33:42].strip() != "aHelix":
+                secStruct = phi_data[i+1][33:42].strip()
+        if secStruct=="Bridge" or secStruct=="Coil":
+            if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
+                (phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
+                (phi_angle== prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
 
-				if prevStruct == "CoilA":
-					secStruct="CoilA"; prevStruct = "CoilA"
-				else:
-					secStruct="CoilB"; prevStruct = "CoilB"
+                if prevStruct == "CoilA":
+                    secStruct="CoilA"; prevStruct = "CoilA"
+                else:
+                    secStruct="CoilB"; prevStruct = "CoilB"
 
-			elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
-				  (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or  
-				  (phi_angle== prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
+            elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or
+                  (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or  
+                  (phi_angle== prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
 
-				if prevStruct == "CoilA":
-					secStruct="CoilB"; prevStruct = "CoilB"
-				else:
-					secStruct="CoilA"; prevStruct = "CoilA"
+                if prevStruct == "CoilA":
+                    secStruct="CoilB"; prevStruct = "CoilB"
+                else:
+                    secStruct="CoilA"; prevStruct = "CoilA"
 
-		if secStruct=="Turn":
-			if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
-				(phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
-				(phi_angle==prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
+        if secStruct=="Turn":
+            if ((phi_angle > prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
+                (phi_angle < prs.ZERO_ANGLE and currentAngle < prs.ZERO_ANGLE) or 
+                (phi_angle==prs.FULL_ANGLE and currentAngle < prs.ZERO_ANGLE)):
 
-				if prevStruct == "TurnA":
-					secStruct="TurnA"; prevStruct = "TurnA"
-				else:
-					secStruct="TurnB"; prevStruct = "TurnB"
+                if prevStruct == "TurnA":
+                    secStruct="TurnA"; prevStruct = "TurnA"
+                else:
+                    secStruct="TurnB"; prevStruct = "TurnB"
 
-			elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
-				  (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or
-				  (phi_angle==prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
+            elif ((phi_angle > prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE) or 
+                  (phi_angle < prs.ZERO_ANGLE and currentAngle > prs.ZERO_ANGLE) or
+                  (phi_angle==prs.FULL_ANGLE and currentAngle > prs.ZERO_ANGLE)):
 
-				if prevStruct == "TurnA":
-					secStruct="TurnB"; prevStruct = "TurnB"
-				else:
-					secStruct="TurnA"; prevStruct = "TurnA"
+                if prevStruct == "TurnA":
+                    secStruct="TurnB"; prevStruct = "TurnB"
+                else:
+                    secStruct="TurnA"; prevStruct = "TurnA"
 
-		if ("Coil" in secStruct or "Turn" in secStruct) and (res=="GLY" and phi_angle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE):
-			phiangle = phi_angle
-			secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
-			currentSecStructure = secStruct                
-			counter+=1
-		elif secStruct != currentSecStructure:
-			counter+=1
-			phiangle = line[42:51].strip()
-			if float(phiangle)==prs.FULL_ANGLE:
-				phiangle=0
-			secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
-			currentSecStructure = secStruct
-		else:
-			secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phi_angle)+"\n")
-		currentAngle = phi_angle
-		if currentAngle==prs.FULL_ANGLE:
-			curentAngle=-1
-	secStructure.close()
+        if ("Coil" in secStruct or "Turn" in secStruct) and (res=="GLY" and phi_angle > prs.ZERO_ANGLE and phi_angle!=prs.FULL_ANGLE):
+            phiangle = phi_angle
+            secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
+            currentSecStructure = secStruct                
+            counter+=1
+        elif secStruct != currentSecStructure:
+            counter+=1
+            phiangle = line[42:51].strip()
+            if float(phiangle)==prs.FULL_ANGLE:
+                phiangle=0
+            secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
+            currentSecStructure = secStruct
+        else:
+            secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phi_angle)+"\n")
+        currentAngle = phi_angle
+        if currentAngle==prs.FULL_ANGLE:
+            curentAngle=-1
+    secStructure.close()
 
     #Version 2 of secondary structure
 #     secStructure2 = open(file1.replace(".pdb","")+"_secondaryStructure2",'w')
@@ -155,11 +155,11 @@ def prepare_rsa_file(file1, phi_file):
         Max solvent area taken from Rose 1985(https://sci-hub.se/10.1126/science.4023714) and defined in parametres.py
     @input
         file1 - pdb file, ex. 4eiy.pdb
-		phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
+        phi_file - secStructure file created by preprocessing script via stride command, has type of structure and phi angle
     @output 
         rsa file, ex. 4eiy_rsa 
     '''
-	if os.path.exists(phi_file):
+    if os.path.exists(phi_file):
         phifile = open(phi_file, 'r').readlines()
     else:
         return 'Need secondary structure PHI file'
@@ -179,8 +179,8 @@ class AminoAcid:
     '''
     def __init__(self, aminoacid):        
         self.acid = aminoacid  # mda.residue object  
-		self.resname = self.acid.resname
-		self.atoms = self.acid.atoms
+        self.resname = self.acid.resname
+        self.atoms = self.acid.atoms
         self.res = aminoacid.resname+':'+str(aminoacid.resid)+aminoacid.segid
         self.origin, self.vec = self.normalVecPIPI()
         self.pipi = self.PiPi()
@@ -218,18 +218,18 @@ class AminoAcid:
         # TODO: why not HEX for others?
         if self.resname in ['TRP']:
             for i, name in enumerate([':NORMAL', ':PENT']):
-				origin_dict[self.res+name] = origins[i]
-				vec_dict[self.res+name] = vecs[i]
+                origin_dict[self.res+name] = origins[i]
+                vec_dict[self.res+name] = vecs[i]
         else:
-			origin_dict[self.res+':NORMAL'] = origins[0]
-			vec_dict[self.res+':NORMAL'] = vecs[0]
+            origin_dict[self.res+':NORMAL'] = origins[0]
+            vec_dict[self.res+':NORMAL'] = vecs[0]
         return origin_dict, vec_dict
 
 
     def PiPi(self):
         '''
         @description
-			Call self.origin and self.vec which are dicts of center's and normal's coords for pipi residues
+            Call self.origin and self.vec which are dicts of center's and normal's coords for pipi residues
             residues involved in pipi bonds are HIS, TYR, PHE, TRP
             return coords of their center of geometry and normalVecs
         @input
@@ -237,9 +237,9 @@ class AminoAcid:
             - origin_dict, vec_dict - def normalVecPIPI() output
         '''
         if self.resname in prs.pication_aa:
-			# we calculate self.origin for our aminoacid 
-			# B/c TRP has 2 types of ring, here create list of names, like [TRP:28:A:NORMAL, TRP:28:A:HEX]
-			# then return for these names coords of centers and normals
+            # we calculate self.origin for our aminoacid 
+            # B/c TRP has 2 types of ring, here create list of names, like [TRP:28:A:NORMAL, TRP:28:A:HEX]
+            # then return for these names coords of centers and normals
             res_keys = [key for key in list(self.origin.keys())] # TODO: res_keys=list(self.origin.keys()) ???
             origin = [self.origin[key] for key in res_keys] # TODO: origin.values???
             norm = [self.vec[key] for key in res_keys] # TODO: vec.values???
@@ -289,7 +289,7 @@ class AminoAcid:
         elif self.resname in prs.acidic_salt_aa:
             select = 'name OE* OD*'
         else: 
-			return None
+            return None
 
         atoms = self.atoms.select_atoms(select)
         coords = atoms.positions
@@ -300,7 +300,7 @@ class AminoAcid:
 def find_pipi_bonds(res1, res2):
     '''
     @description
-    	Find pipi interactions b/w atoms based on distance and angle cutoff
+        Find pipi interactions b/w atoms based on distance and angle cutoff
         - check if res1, res2 is not None in pipi bonding
         - for loop in res1, res2, find angle b/w normals and distance b/w centers
         - return list of pipi bonds under conditions (defined in home page)
@@ -316,7 +316,7 @@ def find_pipi_bonds(res1, res2):
     r2_key, origin2, norm2 = res2.pipi
     acid1 = ''.join(r1_key[0].split(':')[0:2])
     acid2 = ''.join(r2_key[0].split(':')[0:2])
-	out = []
+    out = []
     for i in range(len(r1_key)):
         for j in range(len(r2_key)):
             pipiangle = np.degrees(MDAmath.angle(norm1[i][0], norm2[j][0]))
@@ -325,15 +325,15 @@ def find_pipi_bonds(res1, res2):
             if pipiangle > prs.RIGHT_ANGLE:
                 pipiangle = prs.STRAIGHT_ANGLE - pipiangle
             if ((dist <= prs.PIPI_D1 and pipiangle < prs.PIPI_ANG1) or 
-				(dist <=prs.PIPI_D2 and prs.PIPI_ANG2 < pipiangle < prs.PIPI_ANG3)):
-				out.append(acid1+'\t'+acid2+'\tSCSC'+prs.PIPI_CONST+'PIPI\t'+r1_key[i].split(':')[2]+'\t'+r2_key[j].split(':')[2]+'\n')
-	return out
+                (dist <=prs.PIPI_D2 and prs.PIPI_ANG2 < pipiangle < prs.PIPI_ANG3)):
+                out.append(acid1+'\t'+acid2+'\tSCSC'+prs.PIPI_CONST+'PIPI\t'+r1_key[i].split(':')[2]+'\t'+r2_key[j].split(':')[2]+'\n')
+    return out
 
 # b/c changes prs.calc_norm_vec in origin, so here need to change origin[0] to origin
 def find_pication_bonds(res1, res2):
     '''
     @description
-    	Find pi-cation interactions b/w atoms based on distance and angle cutoff
+        Find pi-cation interactions b/w atoms based on distance and angle cutoff
         - check if res1, res2 is PI residues or contain cation atoms else return None
         - for loop in res1, res2, find angle and distance b/w
         - return list of pication bonds under conditions (defined in home page)
@@ -351,10 +351,10 @@ def find_pication_bonds(res1, res2):
         key1, origin, norm = res2.pipi
         cations = res1.pication
     else: return None
-	
-	out = []
+    
+    out = []
     for i in range(len(key1)):
-		acid = ''.join(key1[i].split(':')[0:2])
+        acid = ''.join(key1[i].split(':')[0:2])
         for cat in cations:
             catvec = cat.position - origin[i]
             catangle = np.degrees(MDAmath.angle(norm[i][0], catvec))
@@ -364,13 +364,13 @@ def find_pication_bonds(res1, res2):
             if MDdist3D(origin[i], cat.position) < prs.PICAT_DIST and catangle < prs.PICAT_ANG:
                 bond = acid+'\t'+(cat.resname+str(cat.resid)+cat.segid)+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+key1[i].split(':')[2]+'\t'+cat.name+'\n'
                 out.append(bond)
-	return out
+    return out
 
 saltBridges = [] # external call to write for hb instead of SB_writing 
 def find_salt_bridges(res1, res2):
     '''
     @description
-    	Find salt bridges b/w atoms based on distance and angle cutoff
+        Find salt bridges b/w atoms based on distance and angle cutoff
         - check if res1, res2 have salt bridges option
         - pairs, distances via mda.capped_distance (dist cutoff - SALT_distance)
         - for loop in pairs, and add to list
@@ -388,14 +388,14 @@ def find_salt_bridges(res1, res2):
     else:
         atoms1, coords1 = res1.sb
         atoms2, coords2 = res2.sb
-		acid1 = res1.res
-		acid2 = res2.res
+        acid1 = res1.res
+        acid2 = res2.res
     # check basic and acidic residues
     name1, name2 = res1.resname, res2.resname
     if all(name in prs.basic_salt_aa for name in [name1, name2]) or all(name in prs.acidic_salt_aa for name in [name1, name2]):
         return None
     # TODO: <= prm.salt_bridge_sequential_distance_threshold
-	# add to parametres.py this constant
+    # add to parametres.py this constant
     if np.abs(res1.acid.resid - res2.acid.resid) == prs.seq_dist_cutoff:
         return None
     # combinations of coords with distance cutoff
@@ -404,8 +404,8 @@ def find_salt_bridges(res1, res2):
     if distances.size != 0:
         for k, [i, j] in enumerate(pairs):
             # use prs.rplsAtom, replace NH1 and NH2 to NH1/2, 
-			a1, a2 = atoms1[i].name, atoms2[j].name
-			
+            a1, a2 = atoms1[i].name, atoms2[j].name
+            
             atom1 = acid1+':'+prs.rplcAtom(a1)
             atom2 = acid2+':'+prs.rplcAtom(a2)
             # write atom1 & atom2 and atom2 & atom1
@@ -416,8 +416,8 @@ def find_salt_bridges(res1, res2):
             # ARG-1034A ASP-1073A must appear once
             # out.append(atom1+'\t'+atom2+prs.SALT_CONST+prs.rplcAtom(atoms1[i].name)+'\t'+prs.rplcAtom(atoms2[j].name)+'\t'+'\n')
             # TODO: why do you need saltBridgesTmp? > delete it
-         	out.append(''.join(atom1.split(':')[0:2])+'\t'+''.join(atom2.split(':')[0:2])+
-					   '\tSCSC'+prs.SALT_CONST+'SB\t'+atom1.split(':')[2]+'\t'+atom2.split(':')[2]+'\n')
+            out.append(''.join(atom1.split(':')[0:2])+'\t'+''.join(atom2.split(':')[0:2])+
+                       '\tSCSC'+prs.SALT_CONST+'SB\t'+atom1.split(':')[2]+'\t'+atom2.split(':')[2]+'\n')
         return out[0]
 
 def find_disulfide_bonds(res1, res2):
@@ -435,27 +435,27 @@ def find_disulfide_bonds(res1, res2):
         return None
     else:   
         coord1, coord2 = res1.disulf, res2.disulf
-		
+        
     acid1 = ''.join(res1.res.split(':'))
     acid2 = ''.join(res2.res.split(':'))
     dist = MDdist3D(coord1, coord2)
     if dist < prs.DISULF_D:
-		bond = acid1+'\t'+acid2+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n'
+        bond = acid1+'\t'+acid2+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n'
         return bond
 
 def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
-	'''
+    '''
     @description
-    	Find hydrogen bonds in created hydrogen table by MDAnalysis
+        Find hydrogen bonds in created hydrogen table by MDAnalysis
         - define saltBridges, if hydrogen atoms in salt bridges, continue
         - iterate through hydrogen table 
         - define donor (X-H) and acceptor (---A) parameters
     @input
-		h - table of hydrogen bonds calculated by MDAnalisys
-		file1 - pdb file used for generating HB file
-		u1_segids - created in main array of segids as u.atoms.segids
-		coords - dictionary of atoms and positions 
-		chain - dictionary of atoms and their type of chain (MC or SC)
+        h - table of hydrogen bonds calculated by MDAnalisys
+        file1 - pdb file used for generating HB file
+        u1_segids - created in main array of segids as u.atoms.segids
+        coords - dictionary of atoms and positions 
+        chain - dictionary of atoms and their type of chain (MC or SC)
     @output 
         HB file in needed format
     '''
@@ -595,7 +595,7 @@ def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
 # def find_hydrogen_bonds(h):
 #     '''
 #     @description
-#     	Find hydrogen bonds in created hydrogen table by MDAnalysis
+#       Find hydrogen bonds in created hydrogen table by MDAnalysis
 #         - define saltBridges, if hydrogen atoms in salt bridges, continue
 #         - iterate through hydrogen table 
 #         - define donor (X-H) and acceptor (---A) parameters
@@ -687,7 +687,7 @@ def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
 #                     if beta < 90: # prs.STRAIGHT_ANGLE
 #                         beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
 
-# 		    		# define Hydrogen Energy function in parameters.py
+#                   # define Hydrogen Energy function in parameters.py
 #                     if prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP3":
 #                         E = prs.energy_hb(d2, 'SP3', 'SP3', alpha, beta, 0)
 #                     elif prs.SPHyb(dA)=="SP3" and prs.SPHyb(acceptor)=="SP2":
@@ -707,8 +707,8 @@ def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
 #                         E = prs.energy_hb(d2, 'SP2', 'SP2', alpha, beta, psi)
 # #                     interaction = donor+"\t"+acceptor+"\t"+dA+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split("-")[2]+"\t"+acceptor.split("-")[2]+"\n"
 #                     hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+
-# 										 str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+
-# 										 dA+"\t"+str(E)+"\t"+donor.split(':')[2]+"\t"+acceptor.split(':')[2]+"\n")
+#                                        str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+
+#                                        dA+"\t"+str(E)+"\t"+donor.split(':')[2]+"\t"+acceptor.split(':')[2]+"\n")
                     
 #     out = open(file1.replace(".pdb","_hb"),'w')
 #     finalHydrogenBonds = []
@@ -750,7 +750,7 @@ def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
 
      
 def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, coords, chain):
-	'''
+    '''
     @description
         - select atoms and their coords
         - capped distance with restricted distance (4.25 this dist was chosen b/c max sum of 2 vdw radii equal to that value)
@@ -758,18 +758,18 @@ def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, co
         - if it's difference less 0.5 and not from neighboring acids and not from main chain
         - find vdw energy 
     @input
-		pairs - pairs of interacted atoms created by capped_distance in main
-		file1 - pdb file used for generating HB file
-		u1_resnames - created in main array of resnames as u.atoms.resnames
-		u1_resids - created in main array of resids as u.atoms.resids
-		u1_segids - created in main array of segids as u.atoms.segids
-		u1_names - created in main array of names as u.atoms.names
-		coords - dictionary of atoms and positions 
-		chain - dictionary of atoms and their type of chain (MC or SC)
+        pairs - pairs of interacted atoms created by capped_distance in main
+        file1 - pdb file used for generating HB file
+        u1_resnames - created in main array of resnames as u.atoms.resnames
+        u1_resids - created in main array of resids as u.atoms.resids
+        u1_segids - created in main array of segids as u.atoms.segids
+        u1_names - created in main array of names as u.atoms.names
+        coords - dictionary of atoms and positions 
+        chain - dictionary of atoms and their type of chain (MC or SC)
     @return 
         - list of acids 
         - files, ex. 4eiy_vdw and 4eiy_vdw2
-    '''		   
+    '''        
     van_atom = np.split(pairs[:, 1], np.cumsum(np.unique(pairs[:, 0], return_counts=True)[1])[:-1])
     vdw1 = {}
     vdw2 = {}
@@ -796,7 +796,7 @@ def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, co
                         if not res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2 in vdw2:
                             vdw2[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2] = []
                         vdw2[res1+":"+res2+":"+chain[elem1]+":"+chain[elem2]+":"+atom1+":"+atom2].append(E)
-				   
+                   
     with open(file1.replace(".pdb","_vdw"),'w') as out:
         for contact in vdw1:
             if not (sum(vdw1[contact])<0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[4]))==1):
@@ -806,20 +806,20 @@ def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, co
         for contact in vdw2:
             if not (sum(vdw2[contact]) < 0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[4]))==1):
                 out.write(':'.join(contact.split(':'))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
-				   
+                   
 
 def find_metal_bonds(file1, metalls, acids_class):
-	'''
-	@description 
-		Iterate through metalls and acids_class.atoms. So find dist b/w metall atom and acid.atoms
-		If it meets conditions on distance, append to metal2atom
-		Then iterate for metal through atoms from metal2atom, find vectors b/w metal and each atom; and angle b/w those vectors 
-		If angle meets conditions, append two atoms to metalBonds list
-	@input
-		file1 - pdb_file
-		metalls - mda selection of metalls 
-		acids_class - created list of class of aminoacids
-	'''
+    '''
+    @description 
+        Iterate through metalls and acids_class.atoms. So find dist b/w metall atom and acid.atoms
+        If it meets conditions on distance, append to metal2atom
+        Then iterate for metal through atoms from metal2atom, find vectors b/w metal and each atom; and angle b/w those vectors 
+        If angle meets conditions, append two atoms to metalBonds list
+    @input
+        file1 - pdb_file
+        metalls - mda selection of metalls 
+        acids_class - created list of class of aminoacids
+    '''
     metal2atom=[]
     metalBonds = []
     for met in metalls:
@@ -861,18 +861,18 @@ def find_metal_bonds(file1, metalls, acids_class):
     
     with open(file1.replace('.pdb', '_metal'), 'a') as out:
         for bond in metalBonds:
-            out.write(bond)				   
-				   
+            out.write(bond)                
+                   
 # def Calc_MetalBonds(met, AA1):
 #     '''
 #     @description
-#     	find metal bonds, distance b/w metal and acid atoms
-# 	for each acid take own distance from dictionary
+#       find metal bonds, distance b/w metal and acid atoms
+#   for each acid take own distance from dictionary
 #     @input 
-#     	met - mda.select of metalls
-#     	AA1 - aminoacids class
+#       met - mda.select of metalls
+#       AA1 - aminoacids class
 #     @output
-# 	list of residues involved in metal bonds
+#   list of residues involved in metal bonds
 #     '''
 #     metal2atom = []
 #     acid = AA1.acid
@@ -908,13 +908,13 @@ def find_metal_bonds(file1, metalls, acids_class):
 #     return metal2atom
 
 # def write_metalbonds(met, metal2atom):
-# 	'''
-# 	@description
-# 	    Iterate through the list of residues and find distances b/w metal atom
-# 	@input
-# 	    met - mda.selection of metalls 
-# 	    metal2atom - list of residues involved in metal bonds
-# 	'''
+#   '''
+#   @description
+#       Iterate through the list of residues and find distances b/w metal atom
+#   @input
+#       met - mda.selection of metalls 
+#       metal2atom - list of residues involved in metal bonds
+#   '''
 #     metal = met.resname+'-'+str(met.resid)+met.segid+'-'+met.name
 #     metalBondsFiltered = []
 #     origin = met.position
@@ -932,20 +932,20 @@ def find_metal_bonds(file1, metalls, acids_class):
 #                     continue
 #                 if met.name in ["NA","K","FE","CU","ZN"] and prs.RIGHT_ANGLE<ang<prs.STRAIGHT_ANGLE:
 # #                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
-# 					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
+#                   metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
 #                 elif ang > prs.RIGHT_ANGLE:
 # #                     metalBondsFiltered.append(atom21+"\t"+atom22+"\t"+chain[atom21]+chain[atom22]+"\t"+metal+"\t"+str(ang)+'\n')
-# 					metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
+#                   metalBondsFiltered.append(''.join(atom21.split('-')[0:2])+'\t'+''.join(atom22.split('-')[0:2])+'\t'+chain[atom21]+chain[atom22]+'\t3\tMETAL\t'+''.join(atom21.split('-')[2])+''.join(atom22.split('-')[2]))
 #     return metalBondsFiltered
 
 # def MetalBonds_calculation1():
 #     '''
 #     @description
-#     	iterate through acid classes and metalls and find metal bonds
+#       iterate through acid classes and metalls and find metal bonds
 #     @parameteres
-#     	input pdb file defined in __main__, ex. 4eiy.pdb
+#       input pdb file defined in __main__, ex. 4eiy.pdb
 #     @return
-#     	file, ex. 4eiy_metal
+#       file, ex. 4eiy_metal
 #     '''
 #     metals = prs.metals # from parameters
 #     met_select = 'resname {}'.format(' '.join(list(metals)))
@@ -969,9 +969,9 @@ def find_metal_bonds(file1, metalls, acids_class):
 def DNA_bonds(file1):
     '''
     @description
-    	choose DA, DG, DC, DT nucleotides and among neighbors find bonds
+        choose DA, DG, DC, DT nucleotides and among neighbors find bonds
     @input
-    	pdb file, return ex. 4eiy_DNA file
+        pdb file, return ex. 4eiy_DNA file
     '''
     dna = u.select_atoms('resname DA DG DC DT') # select dna acids
     dna_atoms = prs.getTotalResidue(dna) + dna.atoms.names # dna atoms
@@ -1004,22 +1004,22 @@ def DNA_bonds(file1):
 
     with open(file1.replace('.pdb', '_DNA'), 'w') as out:
         for nucleotide, atom in DNAbindingPairs:
-	    	out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
+            out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
 
 
-def find_ligand_atom_bonds(file1, residues, u1_names, ligand_centroids):
-	'''
-	@description
-		Find min distance between SiceChain atom and ligand
-		For each atom firstly we define tmp_dist and tmp_ligand, then calculate dist b/w atom and ligand
-		if that dist < tmp_dist, we redefine tmp_dist as new dist, also for ligand
-		Overall, we'll have for each atom own ligand and min distance
-	@input
-		file1 - pdb_file
-		residues - list of residues names ['HIS:26:A']
-		u1_names - list of atom names ['H']
-		ligand_centroids - dict of ligand names and centroid coords
-	'''
+def find_ligand_atom_bonds(file1, residues, u1_names, ligand_centroids, chain, coords):
+    '''
+    @description
+        Find min distance between SiceChain atom and ligand
+        For each atom firstly we define tmp_dist and tmp_ligand, then calculate dist b/w atom and ligand
+        if that dist < tmp_dist, we redefine tmp_dist as new dist, also for ligand
+        Overall, we'll have for each atom own ligand and min distance
+    @input
+        file1 - pdb_file
+        residues - list of residues names ['HIS:26:A']
+        u1_names - list of atom names ['H']
+        ligand_centroids - dict of ligand names and centroid coords
+    '''
     distances = {}
     out = open(file1.replace('.pdb', '_ligand'), 'w')
     for res, name in zip(residues, u1_names):
@@ -1039,9 +1039,9 @@ def find_ligand_atom_bonds(file1, residues, u1_names, ligand_centroids):
 
 # def Ligand_bonds(file1):
 #     '''
-# 	@description
-# 	    iterate through protein atoms and ligands, finding distance b/w them and write to file
-#     	replacing distance to less value try to find the less distance b/w atom and ligand
+#   @description
+#       iterate through protein atoms and ligands, finding distance b/w them and write to file
+#       replacing distance to less value try to find the less distance b/w atom and ligand
 #     '''
 #     atoms = list(prs.getTotalResidue(protein) + (protein).atoms.names)
 #     with open(file1.replace(".pdb","_ligand"),'w') as out:
@@ -1058,9 +1058,9 @@ def find_ligand_atom_bonds(file1, residues, u1_names, ligand_centroids):
 # TODO: not clear
 # def Centroids():
 #     '''
-# 	@description
-#    		for loop centroid data, find distane b/w and if it < 8.5
-#     	not include 2 interacting HOH and same residues
+#   @description
+#           for loop centroid data, find distane b/w and if it < 8.5
+#       not include 2 interacting HOH and same residues
 #     '''
 #     with open(re.sub(".pdb","",file1)+"_centroidNetSC",'w') as out:
 #         for residue1 in sorted(centroid.keys()):
@@ -1088,42 +1088,42 @@ def find_ligand_atom_bonds(file1, residues, u1_names, ligand_centroids):
 #                 tmpdist0 = float(copy.copy(tmpdist1))   
 
 def find_centroid_bonds(file1, centroid_coords):
-	'''
-	@input
-		file1 - pdb_file
-		centroid_coords - dict of residues names and centroid coords
-	'''
+    '''
+    @input
+        file1 - pdb_file
+        centroid_coords - dict of residues names and centroid coords
+    '''
     # dont include WATER molecules and same residues
-	with open(file1+'_centroidNetSC', 'w') as out:
-		for i in centroid_coords.keys():
-			for j in centroid_coords.keys():
-				if i == j:
-					continue
-				dist = MDdist3D(centroid_coords[i], centroid_coords[j])
-				if dist < prs.centroid_dist: #8.5
-					out.write(re.sub(':','',i)+'\t'+re.sub(':','',j)+'\tSCSC\t'+'1'+'\tCENTROID\tCENTROID\tCENTROID\t'+str(dist)+'\n')
-	   
-def find_centroid_ligand_bonds(file1, centroid_coords):
-	'''
-	@description
-		same as for def find_ligand_atom_bonds()
-	@input
-		file1 - pdb_file
-		centroid_coords - dict of residues names and centroid coords
-	'''			   
+    with open(file1+'_centroidNetSC', 'w') as out:
+        for i in centroid_coords.keys():
+            for j in centroid_coords.keys():
+                if i == j:
+                    continue
+                dist = MDdist3D(centroid_coords[i], centroid_coords[j])
+                if dist < prs.centroid_dist: #8.5
+                    out.write(re.sub(':','',i)+'\t'+re.sub(':','',j)+'\tSCSC\t'+'1'+'\tCENTROID\tCENTROID\tCENTROID\t'+str(dist)+'\n')
+       
+def find_centroid_ligand_bonds(file1, centroid_coords, ligand_centroids):
+    '''
+    @description
+        same as for def find_ligand_atom_bonds()
+    @input
+        file1 - pdb_file
+        centroid_coords - dict of residues names and centroid coords
+    '''            
     distances = {}
-	with open(file1+'_centroidNetLigand', 'w') as out:
-		for centroid in centroid_coords.keys():
-			distances[centroid] = {}
-			distances[centroid]['dist'] = prs.ligand_dist
-			distances[centroid]['ligand'] = ''
-			for ligand in ligand_centroids.keys():
-				dist = MDdist3D(ligand_centroids[ligand], centroid_coords[centroid])
-				if dist > distances[centroid]['dist']:
-					continue
-				distances[centroid]['dist'] = dist
-				distances[centroid]['ligand'] = ligand
-			out.write(''.join(centroid.split(':'))+'\t'+''.join((distances[centroid]['ligand']).split(':'))+'\t'+str(distances[centroid]['dist'])+'\n')
+    with open(file1+'_centroidNetLigand', 'w') as out:
+        for centroid in centroid_coords.keys():
+            distances[centroid] = {}
+            distances[centroid]['dist'] = prs.ligand_dist
+            distances[centroid]['ligand'] = ''
+            for ligand in ligand_centroids.keys():
+                dist = MDdist3D(ligand_centroids[ligand], centroid_coords[centroid])
+                if dist > distances[centroid]['dist']:
+                    continue
+                distances[centroid]['dist'] = dist
+                distances[centroid]['ligand'] = ligand
+            out.write(''.join(centroid.split(':'))+'\t'+''.join((distances[centroid]['ligand']).split(':'))+'\t'+str(distances[centroid]['dist'])+'\n')
    
 
 # TODO: not clear
@@ -1133,30 +1133,30 @@ def pdb2peptide(file1):
         Compare protein residues' IDs, 
         If IDs of [i] and [i+1] residues differs by 1, write to file
         Changes output writing as in bash awk command
-    	# Go through ATOM lines in pdb file and define 2 variables
-    	# if acids in one chain write it else not write Write data like 
+        # Go through ATOM lines in pdb file and define 2 variables
+        # if acids in one chain write it else not write Write data like 
         # Change write output as awk in bash script to _net file
     @input
-    	PDB file, ex. 4eiy.pdb
+        PDB file, ex. 4eiy.pdb
     @output
-    	file with PP bonds, ex. 4eiy_polypeptidePairs
+        file with PP bonds, ex. 4eiy_polypeptidePairs
     ''' 
-	with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
-		for i in range(u1.n_residues - 1):
-			if prot_resids[i] == prot_resids[i+1] - 1:
-        		out.write(total_res[i]+'\t'+total_res[i+1]+'\tMCMC\t10\tPP\tPP1\tPP2\n')
+    with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
+        for i in range(u1.n_residues - 1):
+            if prot_resids[i] == prot_resids[i+1] - 1:
+                out.write(total_res[i]+'\t'+total_res[i+1]+'\tMCMC\t10\tPP\tPP1\tPP2\n')
 
 # TODO: not clear; should discuss the use of B-factors
 def Bfactor(file1):
-	'''
-	@description 
-		select CA atoms and tempfactors
-		write it to file, ex. 4eiy_Bfactor file 
-	'''
-	CA_atoms = u.select_atoms('name CA')	
-	with open(file1.replace('.pdb', '_Bfactor'),'w') as bfact:
-		for atom in CA_atoms.atoms:
-		    bfact.write(atom.resname+str(atom.resid)+atom.segid+"\t"+str(atom.tempfactor)+"\n")
+    '''
+    @description 
+        select CA atoms and tempfactors
+        write it to file, ex. 4eiy_Bfactor file 
+    '''
+    CA_atoms = u.select_atoms('name CA')    
+    with open(file1.replace('.pdb', '_Bfactor'),'w') as bfact:
+        for atom in CA_atoms.atoms:
+            bfact.write(atom.resname+str(atom.resid)+atom.segid+"\t"+str(atom.tempfactor)+"\n")
 
 
 # TODO: not clear
@@ -1188,112 +1188,112 @@ def VandWaals_awk_replacement(vdw_file): #1BTL_vdw file
             if any(neg_E in line for neg_E in list(neg_vdw_bonds.keys())): # don't write neg energies
                 continue
             else:
-				out.write(bond[0]+bond[1]+bond[2]+'\t'+bond[3]+bond[4]+bond[5]+'\t'+bond[6]+bond[7]+'\t'+E_value+'\tVDW\t'+bond[8]+'\t'+bond[9]+'\n')
+                out.write(bond[0]+bond[1]+bond[2]+'\t'+bond[3]+bond[4]+bond[5]+'\t'+bond[6]+bond[7]+'\t'+E_value+'\tVDW\t'+bond[8]+'\t'+bond[9]+'\n')
 #                 out.write(bond[0]+'\t'+bond[1]+'\t'+bond[2]+bond[3]+'\t'+E_value+'\tVDW\t'+bond[4]+'\t'+bond[5]+'\n')
 
 if __name__ == '__main__':
-	t0 = time.time()
-	file1 = sys.argv[1] # input file.pdb
-	pdb = file1.replace('.pdb', '')
-	u = mda.Universe(file1)
-	u1 = u.select_atoms('protein and not name OXT')
+    t0 = time.time()
+    file1 = sys.argv[1] # input file.pdb
+    pdb = file1.replace('.pdb', '')
+    u = mda.Universe(file1)
+    u1 = u.select_atoms('protein and not name OXT')
 
-	acids_class = [] # for each residue create class AA1 with parameters
-	for res in u1.residues:
-	    acids_class.append(AminoAcid(res))
-	print('Finish creation of acids class', time.time() - t0)
-	
-	protein = u1.residues
-	prot_resnames, prot_resids, prot_segids, prot_names = protein.resnames, protein.resids, protein.segids, protein.names
-	resnames = u.atoms.resnames
-	resids = u.atoms.resids
-	segids = u.atoms.segids
-	names = u.atoms.names
-	coords = dict(zip(prs.getTotalResidue(u)+names, u.atoms.positions))
-	chain = {} 
-	for res, atom in zip(prs.getTotalResidue(u), names):
-	    if atom in ["N","O","C","CA","HA2","HA3"]:
-	        if res[0:3] == 'GLY' and atom in ["O","CA","HA2","HA3","N","NH"]:
-	            chain[res+atom] = 'SC'
-	        else:
-	            chain[res+atom] = 'MC'
-	    else:
-	        chain[res+atom] = 'SC'
+    acids_class = [] # for each residue create class AA1 with parameters
+    for res in u1.residues:
+        acids_class.append(AminoAcid(res))
+    print('Finish creation of acids class', time.time() - t0)
+    
+    protein = u1.residues
+    prot_resnames, prot_resids, prot_segids, prot_names = protein.resnames, protein.resids, protein.segids, protein.names
+    resnames = u.atoms.resnames
+    resids = u.atoms.resids
+    segids = u.atoms.segids
+    names = u.atoms.names
+    coords = dict(zip(prs.getTotalResidue(u)+names, u.atoms.positions))
+    chain = {} 
+    for res, atom in zip(prs.getTotalResidue(u), names):
+        if atom in ["N","O","C","CA","HA2","HA3"]:
+            if res[0:3] == 'GLY' and atom in ["O","CA","HA2","HA3","N","NH"]:
+                chain[res+atom] = 'SC'
+            else:
+                chain[res+atom] = 'MC'
+        else:
+            chain[res+atom] = 'SC'
 
-	h = hbonds(u, selection1='protein', selection2= 'protein', distance=2.5, distance_type='hydrogen', angle=120) 
-	h.run()
-	h.generate_table() 
-	print('Generate hydrogen table + define chain list', time.time()-t0)
+    h = hbonds(u, selection1='protein', selection2= 'protein', distance=2.5, distance_type='hydrogen', angle=120) 
+    h.run()
+    h.generate_table() 
+    print('Generate hydrogen table + define chain list', time.time()-t0)
 
-	# define some common selections 
-	hoh_atoms =  u.select_atoms('resname HOH')
-	metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
-	protein = u.select_atoms('protein')
-	allatoms = u.select_atoms('all')
-	# allAtoms = list(prs.getTotalResidue(atoms) + atoms.atoms.names)
-	# define ligands as rest of allatoms - water, Me, protein
-	ligands = allatoms - protein - hoh_atoms - metalls
-	ligandCentroids = ligands.center_of_geometry(compound='residues')
-	ligandCentroids  = dict(zip(prs.getTotalResidue(ligands, flag=False), ligandCentroids))
+    # define some common selections 
+    hoh_atoms =  u.select_atoms('resname HOH')
+    metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
+    protein = u.select_atoms('protein')
+    allatoms = u.select_atoms('all')
+    # allAtoms = list(prs.getTotalResidue(atoms) + atoms.atoms.names)
+    # define ligands as rest of allatoms - water, Me, protein
+    ligands = allatoms - protein - hoh_atoms - metalls
+    ligandCentroids = ligands.center_of_geometry(compound='residues')
+    ligandCentroids  = dict(zip(prs.getTotalResidue(ligands, flag=False), ligandCentroids))
 
-	centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') + hoh_atoms
-	# calc weighted center of residues, where centroid_data.masses are weights
-	center = centroid_data.center(centroid_data.masses, compound='residues')
-	centroid = dict(zip(prs.getTotalResidue(centroid_data, flag=False), center))
+    centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') + hoh_atoms
+    # calc weighted center of residues, where centroid_data.masses are weights
+    center = centroid_data.center(centroid_data.masses, compound='residues')
+    centroid = dict(zip(prs.getTotalResidue(centroid_data, flag=False), center))
 
-	print('Create acid and ligand centroids', time.time()-t0)
+    print('Create acid and ligand centroids', time.time()-t0)
 
-	Bfactor(file1)
-	print('Create bfactor file', time.time()-t0)
+    Bfactor(file1)
+    print('Create bfactor file', time.time()-t0)
 
-	SecondaryStructure(file1)
-	print('End _secondaryStructure', time.time()-t0)
+    SecondaryStructure(file1)
+    print('End _secondaryStructure', time.time()-t0)
 
-	RSA(file1)
-	print('End RSA', time.time()-t0)
+    RSA(file1)
+    print('End RSA', time.time()-t0)
 
-	PiPi_writing(file1)
-	print('Found pipi interactions', time.time()-t0)
+    PiPi_writing(file1)
+    print('Found pipi interactions', time.time()-t0)
 
-	PiCation_writing(file1)
-	print('Found pication interactions', time.time()-t0)
+    PiCation_writing(file1)
+    print('Found pication interactions', time.time()-t0)
 
-	SB_writing(file1)
-	print('Found salt bridges', time.time()-t0)
+    SB_writing(file1)
+    print('Found salt bridges', time.time()-t0)
 
-	Disulfide_writing(file1)
-	print('Found disulfide bonds', time.time() -t0)
+    Disulfide_writing(file1)
+    print('Found disulfide bonds', time.time() -t0)
 
-	MetalBonds_calculation1()
-	print('Found metal bonds', time.time()-t0)
+    MetalBonds_calculation1()
+    print('Found metal bonds', time.time()-t0)
 
-	VdW_calculation()
-	print('Found Van der Waals bonds', time.time()-t0)
+    VdW_calculation()
+    print('Found Van der Waals bonds', time.time()-t0)
 
-	Hydrogen_calculation()
-	cmd = '''awk '{split($1,x,"-");split($2,y,"-");print x[1]x[2]"\t"y[1]y[2]"\t"$3"\t"$10"\tHB\t"$11"\t"$12}' '''+ pdb+'_hb' ''' | sed /HOH/d > ''' + pdb + "_hb1"
+    Hydrogen_calculation()
+    cmd = '''awk '{split($1,x,"-");split($2,y,"-");print x[1]x[2]"\t"y[1]y[2]"\t"$3"\t"$10"\tHB\t"$11"\t"$12}' '''+ pdb+'_hb' ''' | sed /HOH/d > ''' + pdb + "_hb1"
     os.system(cmd)
-	print('Found hydrogen bonds', time.time()-t0)
+    print('Found hydrogen bonds', time.time()-t0)
 
-	DNA_bonds(file1)
-	print('Found dna bonds', time.time()-t0)
-	
-	Ligand_bonds(file1)
-	Centroids()
-	print('Found ligand and centroid bonds', time.time()-t0)
-	
-	pdb2peptide(file1)
+    DNA_bonds(file1)
+    print('Found dna bonds', time.time()-t0)
+    
+    Ligand_bonds(file1)
+    Centroids()
+    print('Found ligand and centroid bonds', time.time()-t0)
+    
+    pdb2peptide(file1)
 
     VandWaals_awk_replacement(file1.replace('.pdb', '_vdw')) # replace input file to it, file1.replace('.pdb', '_vdw')
     VandWaals_awk_replacement(file1.replace('.pdb', '_vdw2'))
 
     pdb = file1.replace('.pdb', '')
     names = ['_polypeptidePairs', '_vdw_noRepulse', '_pipi2', '_pication2', 
-			 '_disulf1', '_SaltBridges_Barlow', '_hb1', '_vdw_noRepulse2']
-	# Make os command
+             '_disulf1', '_SaltBridges_Barlow', '_hb1', '_vdw_noRepulse2']
+    # Make os command
     line = ''
     for i in names:
-		line += pdb+i + ' '
+        line += pdb+i + ' '
     
     cmd = "cat "+line+"> {}_net".format(pdb)
     os.system(cmd) # output for 1BTL is 3885
