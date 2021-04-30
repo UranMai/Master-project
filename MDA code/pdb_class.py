@@ -544,7 +544,7 @@ def find_hydrogen_bonds(h, file1, u1_segids, coords, chain):
                         E = prs.energy_hb(d2, 'SP2', 'SP2', alpha, beta, psi)
                     hydrogenBonds.append(donor+"\t"+acceptor+"\t"+chain[dA]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+dA+"\t"+str(E)+"\t"+donor.split(":")[3]+"\t"+acceptor.split(":")[3]+"\n")
     
-        out = open(file1.replace(".pdb",'')+'_hb,'w')
+        out = open(file1.replace('.pdb','_hb'), 'w')
         finalHydrogenBonds = []
         donorBonds = {}
         for interaction in hydrogenBonds:
@@ -774,14 +774,14 @@ def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, co
     vdw1 = {}
     vdw2 = {}
     for i, k in enumerate(van_atom):
-        elem1 = u1_resnames[i]+':'+str(u1_resids[i])+':'+u1_segids[i]+':'+u1_names[i]
+        elem1 = u1_resnames[i]+':'+str(u1_resids[i])+':'+str(u1_segids[i])+':'+u1_names[i]
         res1 = u1_resnames[i]+':'+str(u1_resids[i])+':'+u1_segids[i]
         atom1 = u1_names[i]
         for j in k:
             elem2 = u1_resnames[j]+':'+str(u1_resids[j])+':'+u1_segids[j]+':'+u1_names[j]
-            res2 = u1_resnames[j]+':'+str(u1_resids[j])+':' +u1_segids[j]
+            res2 = u1_resnames[j]+':'+str(u1_resids[j])+':' +str(u1_segids[j])
             atom2 = u1_names[j]
-            if res2+':'+res1+':'+chain[elem2]+":"+chain[elem1]+":"+atom2+":"+atom1 in vdw1:
+            if res2+':'+res1+':'+str(chain[elem2])+":"+str(chain[elem1])+":"+atom2+":"+atom1 in vdw1:
                 continue
             if (not res1==res2 and atom1 in prs.radii and atom2 in prs.radii):
                 rm = prs.radii[atom1] + prs.radii[atom2] # sum vdw radii of 2 atoms
@@ -800,12 +800,12 @@ def find_vdw_bonds(pairs, file1, u1_resnames, u1_resids, u1_segids, u1_names, co
     with open(file1.replace(".pdb","_vdw"),'w') as out:
         for contact in vdw1:
             if not (sum(vdw1[contact])<0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[4]))==1):
-                out.write(''.join(contact.split(' '))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
+                out.write(':'.join(contact.split(':'))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
 
     with open(file1.replace(".pdb","_vdw2"),'w') as out:
         for contact in vdw2:
             if not (sum(vdw2[contact]) < 0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[4]))==1):
-                out.write(''.join(contact.split(' '))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
+                out.write(':'.join(contact.split(':'))+"\t"+str(sum(vdw1[contact]))+"\t"+contact.split(":")[8]+"\t"+contact.split(":")[9]+"\n")
 				   
 
 def find_metal_bonds(file1, metalls, acids_class):
@@ -1188,7 +1188,8 @@ def VandWaals_awk_replacement(vdw_file): #1BTL_vdw file
             if any(neg_E in line for neg_E in list(neg_vdw_bonds.keys())): # don't write neg energies
                 continue
             else:
-                out.write(bond[0]+'\t'+bond[1]+'\t'+bond[2]+bond[3]+'\t'+E_value+'\tVDW\t'+bond[4]+'\t'+bond[5]+'\n')
+				out.write(bond[0]+bond[1]+bond[2]+'\t'+bond[3]+bond[4]+bond[5]+'\t'+bond[6]+bond[7]+'\t'+E_value+'\tVDW\t'+bond[8]+'\t'+bond[9]+'\n')
+#                 out.write(bond[0]+'\t'+bond[1]+'\t'+bond[2]+bond[3]+'\t'+E_value+'\tVDW\t'+bond[4]+'\t'+bond[5]+'\n')
 
 if __name__ == '__main__':
 	t0 = time.time()
