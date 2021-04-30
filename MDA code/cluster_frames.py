@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.simplefilter(action='ignore', category=FutureWarning)
 # pip install --upgrade MDAnalysisTests
-# from MDAnalysis.tests.datafiles import PDB, XTC
+## from MDAnalysis.tests.datafiles import PDB, XTC
 
 
 # Input data, same as PDB, XTC from tests.datafiles
