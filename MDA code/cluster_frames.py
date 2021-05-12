@@ -46,16 +46,19 @@ u.trajectory.add_transformations(*transforms)
 # ###Clustering###
 # ################
 # # https://docs.mdanalysis.org/stable/documentation_pages/analysis/encore/clustering.html
-km1 = clm.KMeans(2,  # no. clusters
-                 init = 'k-means++',  
-                 algorithm="auto")
+# https://scikit-learn.org/stable/modules/classes.html#module-sklearn.cluster
+# methods = [clm.AffinityPropagation(),   
+#            clm.AffinityPropagationNative(),
+#            clm.DBSCAN()]
+
+km1 = clm.KMeans(n_clusters=2, algorithm="auto")
 
 # https://docs.mdanalysis.org/1.0.0/documentation_pages/analysis/encore/confdistmatrix.html
 # calculates the conformational distance (RMSD) matrix. 
 # The distance matrix is calculated between all the frames of all the Universe objects given as input.
-rmsd_matrix = encore.get_distance_matrix(u)
+rmsd_matrix = encore.get_distance_matrix(ensemle=u)
 
-cluster_collection = encore.cluster(u, method=km1, distance_matrix=rmsd_matrix)
+cluster_collection = encore.cluster(ensembles=u, method=km1, distance_matrix=rmsd_matrix)
 centroids = []
 for cluster in cluster_collection.clusters:
     centroids.append(cluster.centroid)
