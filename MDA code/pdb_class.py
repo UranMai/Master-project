@@ -21,7 +21,7 @@ import parameters as prs
 	3. And create phi file (stride)
 '''
 
-def prepare_secondary_structure_file(phi_data):
+def prepare_secondary_structure_file(PDB, phi_data):
 	'''
 	@description
 		phi_file contains info about type of secStructures and phi-angles for amino acids. These data defined by 'ASG' lines.
@@ -121,7 +121,7 @@ def prepare_secondary_structure_file(phi_data):
 			curentAngle=-1
 	secStructure.close()
 
-def prepare_rsa_file(phi_data):
+def prepare_rsa_file(PDB, phi_data):
 	'''
 	@description
 		Read phi file. Take solvent area values from phi file and divide by max solvent area of aminoacid
@@ -367,7 +367,6 @@ def find_salt_bridges(res1, res2):
 			dist = MDdist3D(coords1[i], coords2[j])
 			if dist < prs.SALT_DISTANCE:
 				saltBridges.append(res1_name[i]+'\t'+res2_name[j])
-				# saltBridges.append(res2_name[j]+'\t'+res1_name[i])
 				out.append(res1_name[i]+'\t'+res2_name[j]+'\tSCSC'+prs.SALT_CONST+'SB\t'+'\n')
 	return list(set(out))
 
@@ -416,7 +415,7 @@ def find_disulfide_bonds(res1, res2):
 		# bond = ':'.join(acid1.split(':')[:3])+'\t'+':'.join(acid2.split(':')[:3])+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n'
 		return bond
 
-def find_hydrogen_bonds(u, segids, coords, chain):
+def find_hydrogen_bonds(PDB, u, segids, coords, chain):
 	'''
 	@description
 		Generate table of hydrogen bonds (MDAnalysis.HydrogenBondAnalysis) with parameters: 
@@ -570,7 +569,7 @@ def find_hydrogen_bonds(u, segids, coords, chain):
 				out.write(bond)
 	out.close() 
 
-def find_VanderWaals_bonds(protein, allatoms, chain):
+def find_VanderWaals_bonds(PDB, protein, allatoms, chain):
 	'''
 	@description
 		This is a method which uses mainly mda.objects. It takes moroe time then 2nd method 
@@ -635,7 +634,7 @@ def find_VanderWaals_bonds(protein, allatoms, chain):
 	# 			out.write(contact+'\t'+str(sum(vdw2[contact]))+'\n')
 
 	 
-def find_vdw_bonds(protein, resnames, resids, segids, names, coords, chain):
+def find_vdw_bonds(PDB, protein, resnames, resids, segids, names, coords, chain):
 	'''
 	@description
 		This is a method which uses mainly mda.objects. It takes moroe time then 2nd method 
@@ -663,7 +662,7 @@ def find_vdw_bonds(protein, resnames, resids, segids, names, coords, chain):
 
 	'''
 
-	pairs, distances = mda.lib.distances.capped_distance(prot.positions, prot.positions, max_cutoff=4.25, min_cutoff=0)
+	pairs, distances = mda.lib.distances.capped_distance(protein.positions, protein.positions, max_cutoff=4.25, min_cutoff=0)
 	# create array with sorted first numbers and other atoms' index from pairs
 	van_atom = np.split(pairs[:, 1], np.cumsum(np.unique(pairs[:, 0], return_counts=True)[1])[:-1])
 	vdw1, vdw2 = {}, {}
@@ -706,7 +705,7 @@ def find_vdw_bonds(protein, resnames, resids, segids, names, coords, chain):
 			if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
 				out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
 
-def find_metal_bonds(metalls, acids_class):
+def find_metal_bonds(PDB, metalls, acids_class):
 	'''
 	@description
 		For each metal find atoms from acids_class that are bonded to that metal
@@ -810,7 +809,7 @@ def find_metal_bonds(metalls, acids_class):
 # 			out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
 
 
-def find_ligand_atom_bonds(allatoms, ligand_centroids, chain, coords):
+def find_ligand_atom_bonds(PDB, allatoms, ligand_centroids, chain, coords):
 	'''
 	@description
 		Consider sidechained atom, for it create 'distances' dict with 'dist' and 'ligand' keys
@@ -895,7 +894,7 @@ def find_ligand_atom_bonds(allatoms, ligand_centroids, chain, coords):
 #                 out.write(re.sub("-","",residue1)+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
 #                 tmpdist0 = float(copy.copy(tmpdist1))   
 
-def find_centroid_bonds(centroid_coords):
+def find_centroid_bonds(PDB, centroid_coords):
 	'''
 	@description
 		In main define centroids and their coordinates
@@ -915,7 +914,7 @@ def find_centroid_bonds(centroid_coords):
 				if dist < prs.centroid_dist: #8.5
 					out.write(re.sub(':','',i)+'\t'+re.sub(':','',j)+'\tSCSC\t'+'1'+'\tCENTROID\tCENTROID\tCENTROID\t'+str(dist)+'\n')
 	   
-def find_centroid_ligand_bonds(centroid_coords, ligand_centroids):
+def find_centroid_ligand_bonds(PDB, centroid_coords, ligand_centroids):
 	'''
 	@description
 		For each centroid key create 'distances' dict with 'dist' and 'ligand' keys
@@ -1026,9 +1025,9 @@ if __name__ == '__main__':
 		print('Point appropriate PDB and PHI files')
 		exit()
 	
-	prepare_secondary_structure_file(phi_data)
+	prepare_secondary_structure_file(PDB, phi_data)
 
-	prepare_rsa_file(phi_data)
+	prepare_rsa_file(PDB, phi_data)
 	
 
 	# ### MAIN ###
@@ -1091,15 +1090,15 @@ if __name__ == '__main__':
 	# h = hbonds(u, selection1='protein', selection2= 'protein', distance=2.5, distance_type='hydrogen', angle=120) 
 	# h.run()
 	# h.generate_table() 
-	find_hydrogen_bonds(u, prot_segids, coords, chain)
+	find_hydrogen_bonds(PDB, u, prot_segids, coords, chain)
 
-	find_vdw_bonds(prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
+	find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
 
-	find_VanderWaals_bonds(prot, allatoms, chain) # new version
+	find_VanderWaals_bonds(PDB, prot, allatoms, chain) # new version
 	# # VandWaals_awk_replacement(PDB.replace('.pdb','')+'_vdw')
 	# # VandWaals_awk_replacement(PDB.replace('.pdb','')+'_vdw2')
 
-	find_metal_bonds(metalls, acids_class)	
+	find_metal_bonds(PDB, metalls, acids_class)	
 
 	# # # Concatenate created files into one 
 	# # pdb = PDB.replace('.pdb', '')
@@ -1123,6 +1122,6 @@ if __name__ == '__main__':
 	centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
 	centroid_coords = dict(zip(centroid_names, center_coords))
 	
-	find_ligand_atom_bonds(allatoms, ligand_centroids, chain, coords)
+	find_ligand_atom_bonds(PDB, allatoms, ligand_centroids, chain, coords)
 	# find_centroid_bonds(centroid_coords)
-	find_centroid_ligand_bonds(centroid_coords, ligand_centroids)
+	find_centroid_ligand_bonds(PDB, centroid_coords, ligand_centroids)
