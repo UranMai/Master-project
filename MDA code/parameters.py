@@ -3,6 +3,7 @@ import math
 
 # metalls
 metals = ["NA","MG","K","CA","MN","FE","CO","CU","ZN", "S"]
+metal_dist_cutoff = 3.5
 
 # constant values of angles and distances
 SALT_CONST = '\t20\t' 
@@ -29,13 +30,18 @@ RIGHT_ANGLE = 90
 ZERO_ANGLE = 0
 
 seq_dist_cutoff = 1
-H_A_dist_cutoff = 3.5 # used in hydrogen bonds as hydrogen-acceptor dist cutoff
-D_A_dist_cutoff = 4.6 # used in hydrogen bonds as donor-acceptor dist cutoff
+H_A_dist_cutoff = 3.5 # used in hydrogen bonds as hydrogen-acceptor distance cutoff
+D_A_dist_cutoff = 4.6 # used in hydrogen bonds as donor-acceptor distance cutoff
 hb_d1 = 2.5; hb_d11 = 3.2; hb_d12 = 3.3
 hb_d2 = 3.9; hb_d21 = 4.1; hb_d22 = 4.5
 
 ligand_dist = 150
 centroid_dist = 8.5
+
+acceptor_atoms1 = ["OD1","OD2","OE1","OE2","OG","OG1","SG"]
+acceptor_atoms2 = ["O","ND1","NE2","OH"]
+donor_atoms1 = ["NH1","NH2","ND2","NE2"] 
+donor_atoms2 = ["NZ"]
 
 def energy_vdw(rm, r): # energy formula for vdw bonds
     # rm - distance b/w 2 atoms
@@ -43,14 +49,21 @@ def energy_vdw(rm, r): # energy formula for vdw bonds
     E = (-.997*((rm/r)**12-2*(rm/r)**6))*4
     return E
 
-def energy_hb(d2, sphyb1, sphyb2, alpha, beta, psi): # energy of hybridization for hydrogen bonds
-    '''
-    d2 - distance b/w donor and acceptor
+def HydrogenBondEnergy(dist, sphyb1, sphyb2, alpha, beta, psi=None): # energy of hybridization for hydrogen bonds
+    '''"""
+    Energy for various hybridizations
+    Ef = V*[5*(do/d)^12 - 6*(do/d)^10]*F where do is 2.8, d is the distance between donor and acceptor atom (ie d2), V is 8 
+    sp3 donor - sp3 acceptor F=cos^2(alpha)cos^2(beta-109.5)
+    sp3 donor - sp2 acceptor F=cos^2(alpha)cos^2(beta)
+    sp2 donor - sp3 acceptor F=cos^4(alpha)
+    sp2 donor - sp2 acceptor F=cos^2(alpha)cos^2(max[alpha,beta])
+    """
+    dist - distance b/w donor and acceptor atoms
     sphyb1 - type of donor hybridization 
     sphyb2 - type of acceptor hybridization
     alpha, beta, psi - parameters of hydrogen bonding
     '''
-    E = -33.47*(5*(2.8/d2)**12 - 6*(2.8/d2)**10)
+    E = -33.47*(5*(2.8/dist)**12 - 6*(2.8/dist)**10)
     if sphyb1=='SP3' and sphyb2=='SP3':
         F = ((math.cos(math.radians(alpha)))**2)*(math.cos(math.radians(beta-109.5)))**2
     elif sphyb1=='SP3' and sphyb2=='SP2':
@@ -113,10 +126,21 @@ def isNeighbor(atom1,atom2):
     
 # aminoacids variations
 # normVec4acids = {} # maybe create dict of acids and atoms for normalVecPIPI
-his = ['HIS', 'HISD', 'HISE', 'HISH', 'HIS1']
+acids_set = {'HIS' : ['HIS', 'HISD', 'HISE', 'HISH', 'HIS1'],
+             'ARG' : ['ARG', 'ARGN'],
+             'LYS' : ['LYS', 'LYSN'],
+             'TYR' : ['TYR'],
+             'PHE' : ['PHE'],
+             'TRP' : ['TRP'],
+             }
+
+pication_acids = acids_set['HIS']+acids_set['TYR']+acids_set['PHE']+acids_set['TRP']
+cation_acids = acids_set['ARG']+acids_set['LYS']
+
+
 salt_aa = ['ARG', 'ARGN', 'LYS', 'LYSN', 'HIS', 'HISD', 'HISE', 'HISH', 'HIS1', 'ASP', 'ASPH', 'GLU', 'GLUH']
-pication_aa = his + ['TYR', 'TRP', 'PHE']
-cation_aa = ['ARG', 'ARGN', 'LYS', 'LYSN']
+# pication_aa = his + ['TYR', 'TRP', 'PHE']
+# cation_aa = ['ARG', 'ARGN', 'LYS', 'LYSN']
 disulf_aa = ['CYS', 'CYS2']
 basic_salt_aa = ['ARG', 'ARGN', 'LYS', 'HIS', 'HISD', 'HISE', 'HISH', 'HIS1']
 acidic_salt_aa = ['ASP', 'ASPH', 'GLU', 'GLUH']
@@ -150,7 +174,7 @@ acceptor_dict = {'ASN' : {'OD1' : ['CG', 'CB']},
                  'O' : ['C', 'CA']}
 
 
-def normalDonorVecToPlane1(A, coords):
+def normalDonorVecToPlane(A, coords):
     '''
     calculate coords of normal to donor acid
     Take as input name of Donor (A) and coord dictionary
@@ -172,7 +196,7 @@ def normalDonorVecToPlane1(A, coords):
         return None
     return normal
 
-def normalAcceptorVecToPlane1(A, coords):
+def normalAcceptorVecToPlane(A, coords):
     '''
     calculate coords of normal to Acceptor acid
     Take as input name of Acceptor (A) and coord dictionary
@@ -262,7 +286,7 @@ def isAcceptor(elem):
 # check if acid+atom is Donor
 def isDonor(elem):
     acid = elem.split(':')[0]
-    atom = elem.split(':')[3]
+    atom = elem.split(':')[3] #3
     SCdonors = ["ARG:NE","ARG:NH1","ARG:NH2","ASN:ND2","GLN:NE2","HIS:ND1","HIS:NE2","LYS:NZ","SER:OG","THR:OG1","TRP:NE1","TYR:OH","CYS:SG","HOH:O"]
     MCdonors = ["ARG:N","HIS:N","LYS:N","ASP:N","GLU:N","SER:N","THR:N","ASN:N","GLN:N","CYS:N","SEC:N","GLY:N","PRO:N","ALA:N","VAL:N","ILE:N","LEU:N","MET:N","PHE:N","TYR:N","TRP:N"]
     # if atom.split(':')[0]+':'+atom.split(':')[2] in SCdonors or atom.split(':')[0]+':'+atom.split(':')[2] in MCdonors:
