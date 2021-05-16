@@ -766,47 +766,56 @@ def find_metal_bonds(PDB, metalls, acids_class):
             out.write(bond)                
             
 
-# def find_dna_bonds(u):
-#   '''
-#   @description
-#       choose DA, DG, DC, DT nucleotides and among neighbors find bonds
-#   @input
-#       u - MDA.Universe
-#       pdb file, return ex. 4eiy_DNA file
-#   '''
-#   dna = u.select_atoms('resname DA DG DC DT') # select dna acids
+def find_dna_bonds(u, allatoms_data):
+    '''
+    @description
+        Select DNA resnames (DA, DG, DC, DT).
+        Iterate through 2 atoms around DNA resname, if angle b/w these 2 atoms suits to conditions.
+        Append to list DNAbindingPairs and write output file
+    @input
+        u - MDAnalysis Universe object
+        allatoms_data - dict of atoms and their chain types and coords
+    @return 
+        file in format
+        DNA_atom | Protein_atom | Chaintype | Value | BondType |  
+    '''
+    # dna = u.select_atoms('resname DA DG DC DT') # select dna acids
+    # allatoms_data - also contains information about DNA atoms (DA, DG, DC, DT)
+    dna = u.select_atoms('resname DA DG DC DT')
+    atoms_around_dna = u.select_atoms('protein and around 7.5 resname DA DG DC DT') # only consider protein atoms
+    around_atoms = [i+':'+str(j)+':'+k+':'+l for i, j, k, l in zip(atoms_around_dna.resnames, atoms_around_dna.resids, atoms_around_dna.segids, atoms_around_dna.names)]
+    
+    dna_atoms = [i+':'+str(j)+':'+k+':'+l for i, j, k, l in zip(dna.resnames, dna.resids, dna.segids, dna.names)]
+    dna_data = {atom : pos for atom, pos in zip(dna_atoms, dna.positions)}
+    DNAbindingPairs = []
 
-#   # dna_atoms = prs.getTotalResidue(dna) + dna.atoms.names # dna atoms
-#   DNAbindingPairs = []
-#   for nucleotide in dna_atoms:
-#       for atom2 in neighboringAtoms:
-#           if not prs.isDNA(atom2.split("-")[0]) and not "HOH" in atom2: # atom2 not be DNA and HOH
-#               bound = False
-#               # check if atom2 and nucleotide interact
-#               if (("N" in nucleotide.split("-")[2] and (prs.isDonor(atom2) or prs.isAcceptor(atom2))) or 
-#                   ("O"in nucleotide.split("-")[2] and (prs.isDonor(atom2) or prs.isAcceptor(atom2))) or 
-#                   (("N" in nucleotide.split("-")[2] or "O" in nucleotide.split("-")[2]) and "S" in atom2.split("-")[2]) 
-#                   or ("C" in nucleotide.split("-")[2] and "O" in atom2.split("-")[2] and prs.isAcceptor(atom2)) or 
-#                   ("O" in nucleotide.split("-")[2] and atom2.split("-")[2] in ["NZ","NH1","NH2","OD1","OD2","OE1","OE2"]) or 
-#                   ("C" in nucleotide.split("-")[2] and "C" in atom2.split("-")[2]) ):
+    for dna_atom, dna_coords in dna_data.items():  # DA:9:D:N1
+        for atom1 in around_atoms:
+            bound = False
+            if (("N" in dna_atom.split(':')[3] and (prs.isDonor(atom1) or prs.isAcceptor(atom1))) or 
+                ("O" in dna_atom.split(':')[3] and (prs.isDonor(atom1) or prs.isAcceptor(atom1))) or 
+                (("N" in dna_atom.split(':')[3] or "O" in dna_atom.split(':')[3]) and "S" in atom1.split(':')[3]) or 
+                ("C" in dna_atom.split(':')[3] and "O" in atom1.split(':')[3] and prs.isAcceptor(atom1)) or 
+                ("O" in dna_atom.split(':')[3] and atom1.split(':')[3] in ["NZ","NH1","NH2","OD1","OD2","OE1","OE2"]) or 
+                ("C" in dna_atom.split(':')[3] and "C" in atom1.split(':')[3])):
 
-#                   for atom3 in neighboringAtoms[nucleotide]: # atom3 - neighbor of nucleotide
-#                       if atom3==atom2 or prs.isH(atom3): # check that atom2!=atom3 and atom3 is hydrogen atom
-#                           continue
-#                       vector1 = coords[nucleotide] - coords[atom3]
-#                       vector2 = coords[atom2] - coords[atom3]
-#                       omega = np.degrees(mda.lib.mdamath.angle(vector1, vector2))
-#                       if omega <= prs.RIGHT_ANGLE:
-#                           bound = True
-#                       else:
-#                           bound = False
-#                           break
-#               if bound:
-#                       DNAbindingPairs.append([nucleotide,atom2])
+                for atom2 in around_atoms:
+                    if atom2 == atom1 or atom2.split(':')[3] == 'H': # check isH function
+                        continue
+                    vector1 = dna_coords - allatoms_data[atom2]['coords']
+                    vector2 = allatoms_data[atom2]['coords'] - allatoms_data[atom1]['coords']
+                    omega = np.degrees(mda.lib.mdamath.angle(vector1, vector2))
+                    if omega <= prs.RIGHT_ANGLE:
+                        bound = True
+                    else:
+                        bound = False
+                        break
+            if bound:
+                DNAbindingPairs.append([dna_atom, atom1])
 
-#   with open(file1.replace('.pdb', '_DNA'), 'w') as out:
-#       for nucleotide, atom in DNAbindingPairs:
-#           out.write(''.join(nucleotide.split('-')[0:2])+'\t'+''.join(atom.split('-')[0:2])+'\tMC'+chain[atom]+'\t10\tDNA\tNT\t'+''.join(nucleotide.split('-')[2]))
+    with open('DNAbonds', 'w') as out:
+        for dna_atom, prot_atom in DNAbindingPairs:
+            out.write(dna_atom+'\t'+prot_atom+'\tMC'+allatoms_data[prot_atom]['chain']+'\t10\tDNA\tNT\n')
 
 
 def find_ligand_atom_bonds_new(PDB, ligand_centroids, atoms_dict):
