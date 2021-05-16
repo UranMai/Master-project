@@ -989,39 +989,47 @@ def prepare_bfactor_file(pdb_file, protein):
 
 
 # TODO: not clear
-# def VandWaals_awk_replacement(vdw_file): #1BTL_vdw file 
-#   '''
-#   It is awk replacement, here sum up energies for same connected acids, so 
-#   if total energy b/w acids' atoms is negative don't include these bonds
-#   '''
-#   with open(vdw_file, 'r') as vdw_out:
-#       lines = vdw_out.readlines()
+def select_vdw_bonds(vdw_file): #1BTL_vdw file 
+    '''
+    @description
+        Read vdw_file and process VanderWaals bonds.
+        Compute total sum of energies for same connected amino acids,
+        if this total energy is negative -> don't include interactions b/w these amino acids
+    @input
+        vdw_file - created file with VanderWaals bonds, in format
+        Atom1      | Atom2       | Chain_type | Energy
+        HIS:26:A:N | GLU:58:A:CD | MCSC       | 3.470
+    @return 
+        processed file of VanderWaals bonds with positive total energy, in format
+        Atom1      | Atom2       | Chain_type | Energy
+        HIS:26:A:N | GLU:58:A:CD | MCSC       | 3.470
+    '''
+    with open(vdw_file, 'r') as vdw_out:
+        lines = vdw_out.readlines()
+        bond_energies = {} # dict of bonds and summed total energy
+        
+        for line in lines:
+            acid1, acid2, chain, energy = line.split('\t')
+            res1 = ':'.join(acid1.split(':')[0:3])
+            res2 = ':'.join(acid2.split(':')[0:3])
+            bond1 = res1+':'+res2
+            bond2 = res2+':'+res1
+            if bond1 not in s and bond2 not in s:
+                bond_energies[bond1] = float(energy)
+            elif bond1 in s and bond2 not in s:
+                bond_energies[bond1] += float(energy)
+            elif bond1 not in s and bond2 in s:
+                bond_energies[bond2] += float(energy)
+        # Define bonds with negative total energy
+        neg_vdw_bonds = dict((bond, energy) for bond, energy in bond_energies.items() if energy <= 0)
 
-#   s = {}
-#   for line in lines:
-#       interaction = line.split('\t')[0]
-#       energy = line.split('\t')[1]
-#       acid1 = ':'.join(interaction.split(':')[0:3])
-#       acid2 = ':'.join(interaction.split(':')[4:7])
-#       bond1 = acid1+':'+acid2
-#       bond2 = acid2+':'+acid1
-#       if bond1 not in s and bond2 not in s:
-#           s[bond1] = float(energy)
-#       elif bond1 in s and bond2 not in s:
-#           s[bond1] += float(energy)
-#       elif bond1 not in s and bond2 in s:
-#           s[bond2] += float(energy)
-#   # Define bonds with negative total energy
-#   neg_vdw_bonds = dict((i, j) for i, j in s.items() if j <= 0)
-#   # Write into new file
-#   with open(vdw_file.replace('vdw', 'vdw_noRepulse'), 'w') as out:
-#       for line in lines:
-#           bond, E_value = line.split('\t')[0:2]
-#           bond = bond.split(':')
-#           if any(neg_E in line for neg_E in list(neg_vdw_bonds.keys())): # don't write neg energies
-#               continue
-#           else:
-#               out.write(bond[0]+bond[1]+bond[2]+'\t'+bond[3]+bond[4]+bond[5]+'\t'+bond[6]+bond[7]+'\t'+E_value+'\tVDW\t'+bond[8]+'\t'+bond[9]+'\n')
+    with open('VdW_noRepulse', 'w') as out:
+        for line in lines:
+            if any(bond.split('\t')[0] in line and bond.split('\t')[1] in line for bond in list(neg_vdw_bonds.keys())): # don't write acids with negative energies
+                continue
+            else:
+                out.write(line.replace('\n', '\t')+'VDW\n')
+
 
 if __name__ == '__main__':
     t0 = time.time()
