@@ -415,7 +415,7 @@ def find_disulfide_bonds(res1, res2):
         # bond = ':'.join(acid1.split(':')[:3])+'\t'+':'.join(acid2.split(':')[:3])+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n'
         return bond
 
-def find_hydrogen_bonds(PDB, u, segids, coords, chain):
+def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
     '''
     @description
         Generate table of hydrogen bonds (MDAnalysis.HydrogenBondAnalysis) with parameters: 
@@ -445,7 +445,7 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain):
     h = hbonds(u, selection1='protein', selection2= 'protein', distance_type='hydrogen', distance=2.5, angle=120) 
     h.run()
     h.generate_table()
-
+    print(saltBridges)
     tmp = []
     hydrogenBonds = []
     acceptorBonds = {}
@@ -954,39 +954,36 @@ def find_centroid_ligand_bonds(protein_centroids, ligand_centroids):
                 out.write(centroid+'\t'+ligand+'\t'+str(distances[centroid]['dist'])+'\n')
                 # out.write(''.join(centroid.split(':'))+'\t'+''.join((distances[centroid]['ligand']).split(':'))+'\t'+str(distances[centroid]['dist'])+'\n')
 
-# def pdb2peptide(file1):
-#   '''
-#   @description
-#       Compare protein residues' IDs, 
-#       If IDs of [i] and [i+1] residues differs by 1, write to file
-#       Changes output writing as in bash awk command
-#       # Go through ATOM lines in pdb file and define 2 variables
-#       # if acids in one chain write it else not write Write data like 
-#       # Change write output as awk in bash script to _net file
-#   @input
-#       PDB file, ex. 4eiy.pdb
-#   @return
-#       file with PP bonds in format
+def find_peptide_pairs(protein):
+	'''
+ 	@description
+		Find peptide pairs b/w two successive residues in aminoacid sequence
 
-#   ''' 
-#   with open(file1.replace('.pdb', '_polypeptidePairs'), 'w') as out:
-#       for i in range(u1.n_residues - 1):
-#           if prot_resids[i] == prot_resids[i+1] - 1:
-#               out.write(total_res[i]+'\t'+total_res[i+1]+'\tMCMC\t10\tPP\tPP1\tPP2\n')
+ 	@input
+		protein - MDAnalysis object, select_atoms('protein')
+	    PDB file, ex. 4eiy.pdb
+	''' 
+	residues = protein.residues
+	with open('polypeptidePairs', 'w') as out:
+	    for i in range(protein.n_residues - 1):
+	    	if residues[i].resid == residues[i+1].resid - 1:
+	    		out.write(residues[i].resname+':'+str(residues[i].resid)+':'+residues[i].segid+'\t'+
+	    			residues[i+1].resname+':'+str(residues[i+1].resid)+':'+residues[i+1].segid+'\tMCMC\t10\tPP\n')
 
-def prepare_bfactor_file(pdb_file, protein):
+def prepare_bfactor_file(protein):
     '''
-    @description 
-        protein - mda.Universe select_atoms('protein')
-        select CA atoms and tempfactors
-        write it to file, ex. 4eiy_Bfactor file 
-    @input
+    @description
+    	Select "CA" atoms of residues and extract B-factor(tempfactor)
+    	And write to file ("Bfactor") in format
+		Acid     | B-factor
+		HIS:26:A | 14.48
+    @input 
+        protein - MDAnalysis object, select_atoms('protein')
     '''
     CA_atoms = protein.select_atoms('name CA')    
-    with open(pdb_file.replace('.pdb', '_Bfactor'),'w') as bfact:
+    with open('Bfactor','w') as bfact:
         for atom in CA_atoms.atoms:
-            bfact.write(atom.resname+str(atom.resid)+atom.segid+"\t"+str(atom.tempfactor)+"\n")
-
+            bfact.write(atom.resname+':'+str(atom.resid)+':'+atom.segid+"\t"+str(atom.tempfactor)+"\n")
 
 # TODO: not clear
 def select_vdw_bonds(vdw_file): #1BTL_vdw file 
@@ -1030,6 +1027,61 @@ def select_vdw_bonds(vdw_file): #1BTL_vdw file
             else:
                 out.write(line.replace('\n', '\t')+'VDW\n')
 
+# def main(pdb_file, phi_file): 
+# def main(u, *args, **args):
+# 	# IF WE INPUT UNIVERSE WITH PDB TOPOLOGY AND FRAMES_DICT OF COORDINATES
+# 	# pdb_file - 1BTL.pdb
+# 	# phi_file - 1BTL.phi
+# 	phifile = open(phi_file, 'r').readlines()
+# 	phi_data = [line for line in phifile if 'ASG' in line] 
+
+# 	# DEFINE mda objects for protein, water, metall, ligand molecules
+# 	u = mda.Universe(pdb_file)
+# 	protein = u.select_atoms('protein')
+# 	hoh = u.select_atoms('resname HOH')
+# 	metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
+# 	ligands = u.select_atoms('not protein and not resname HOH') - metalls
+# 	# ligands = u - protein - hoh - metalls
+
+# 	prot = protein.atoms # define protein atoms
+#     prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
+#     allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
+
+#     allatoms_data = {} # define dict of protein atoms' coords and chain types
+#     for atom, position in zip(allatoms, prot.positions):
+#         allatoms_data[atom] = {}
+#         allatoms_data[atom]['coords'] = position
+#         allatoms_data[atom]['chain'] = ''
+#         if atom.split(':')[3] in ["N","O","C","CA","HA2","HA3"]:
+#             if atom.split(':')[0] == 'GLY' and atom.split(':')[3] in ["O","CA","HA2","HA3","N","NH"]:
+#                 allatoms_data[atom]['chain'] = 'SC'
+#             else:
+#                 allatoms_data[atom]['chain'] = 'MC'
+#         else:
+#             allatoms_data[atom]['chain'] = 'SC'
+
+#     acids_class = [AminoAcid(res) for res in prot.residues]
+
+#     with open(PDB.replace('.pdb', '_bonds'), 'w') as net:
+#         for i in range(len(acids_class)):
+#             for j in range(i+1, len(acids_class)):
+#                 bonds = find_pipi_bonds(acids_class[i], acids_class[j])
+#                 if bonds: 
+#                     for bond in bonds:
+#                         net.write(bond)
+#                 bonds = find_pication_bonds(acids_class[i], acids_class[j])
+#                 if bonds: 
+#                     for bond in bonds:
+#                         net.write(bond)
+#                 bonds = find_salt_bridges(acids_class[i], acids_class[j])
+#                 if bonds: 
+#                     net.write(bonds[0]) #why we write only one connection b/w acids
+#                     # for bond in bonds:
+#                         # net.write(bond)
+#                 bonds = find_disulfide_bonds(acids_class[i], acids_class[j])
+#                 if bonds: 
+#                     for bond in bonds:
+#                         net.write(bond)
 
 if __name__ == '__main__':
     t0 = time.time()
@@ -1059,7 +1111,6 @@ if __name__ == '__main__':
     protein = u.select_atoms('protein') # u1 = u.select_atoms('protein and not name OXT')
     hoh = u.select_atoms('resname HOH')
     metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
-    # ligands = allatoms - protein - hoh_atoms - metalls
     ligands = u.select_atoms('not protein and not resname HOH') - metalls
 
     prot = protein.atoms #define for each atom of protein
@@ -1119,14 +1170,14 @@ if __name__ == '__main__':
                 if bonds: 
                     for bond in bonds:
                         net.write(bond)
-
+    print(len(saltBridges))
     # protein = u1.residues
     # prot_resnames, prot_resids, prot_segids, prot_names = protein.resnames, protein.resids, protein.segids, protein.names
 
     # h = hbonds(u, selection1='protein', selection2= 'protein', distance=2.5, distance_type='hydrogen', angle=120) 
     # h.run()
     # h.generate_table() 
-    find_hydrogen_bonds(PDB, u, prot_segids, coords, chain)
+    find_hydrogen_bonds(PDB, u, prot_segids, coords, chain, saltBridges)
 
     find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
 
