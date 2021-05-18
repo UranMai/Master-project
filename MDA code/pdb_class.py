@@ -342,7 +342,7 @@ def find_salt_bridges(res1, res2):
         - list of acids for writing to file  
     '''
     # global saltBridges
-    # saltBridges = []
+    saltBridges = []
     # check not None residues and call coords, atoms involved in salt bridges
     if res1.sb is None or res2.sb is None:
         return None
@@ -445,7 +445,7 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
     h = hbonds(u, selection1='protein', selection2= 'protein', distance_type='hydrogen', distance=2.5, angle=120) 
     h.run()
     h.generate_table()
-    print(saltBridges)
+
     tmp = []
     hydrogenBonds = []
     acceptorBonds = {}
@@ -551,7 +551,7 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
                 donorBonds[donor]+=1
             elif donor.split(':')[3] in prs.donor_atoms1 and donorBonds[donor] < 2:
                 out.write(bond)
-                donorBonds[dA]+=1
+                donorBonds[donor]+=1
             elif donor.split(':')[3] in prs.donor_atoms2 and donorBonds[donor] < 3:
                 out.write(bond)
                 donorBonds[donor]+=1
@@ -865,7 +865,7 @@ def find_ligand_atom_bonds_new(PDB, ligand_centroids, atoms_dict):
         #             out.write(atom+'\t'+ligand+'\t'+str(ligand_distances[atom]['dist'])+'\n')
     
 
-def find_ligand_atom_bonds_old(allatoms, chain, coords): # old version 
+def find_ligand_atom_bonds_old(allatoms, chain, coords, ligand_centroids): # old version 
     '''
     @description
         iterate through protein atoms and ligands, finding distance b/w them and write to file
@@ -1027,61 +1027,95 @@ def select_vdw_bonds(vdw_file): #1BTL_vdw file
             else:
                 out.write(line.replace('\n', '\t')+'VDW\n')
 
-# def main(pdb_file, phi_file): 
-# def main(u, *args, **args):
-# 	# IF WE INPUT UNIVERSE WITH PDB TOPOLOGY AND FRAMES_DICT OF COORDINATES
-# 	# pdb_file - 1BTL.pdb
-# 	# phi_file - 1BTL.phi
-# 	phifile = open(phi_file, 'r').readlines()
-# 	phi_data = [line for line in phifile if 'ASG' in line] 
 
-# 	# DEFINE mda objects for protein, water, metall, ligand molecules
-# 	u = mda.Universe(pdb_file)
-# 	protein = u.select_atoms('protein')
-# 	hoh = u.select_atoms('resname HOH')
-# 	metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
-# 	ligands = u.select_atoms('not protein and not resname HOH') - metalls
-# 	# ligands = u - protein - hoh - metalls
+def main(u):
+    # IF WE INPUT UNIVERSE WITH PDB TOPOLOGY AND FRAMES_DICT OF COORDINATES
 
-# 	prot = protein.atoms # define protein atoms
-#     prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
-#     allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
+    # define mda objects for protein, water, metall, ligand molecules
+    protein = u.select_atoms('protein')
+    hoh = u.select_atoms('resname HOH')
+    metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
+    ligands = u.select_atoms('not protein and not resname HOH') - metalls
+    # ligands = u - protein - hoh - metalls
 
-#     allatoms_data = {} # define dict of protein atoms' coords and chain types
-#     for atom, position in zip(allatoms, prot.positions):
-#         allatoms_data[atom] = {}
-#         allatoms_data[atom]['coords'] = position
-#         allatoms_data[atom]['chain'] = ''
-#         if atom.split(':')[3] in ["N","O","C","CA","HA2","HA3"]:
-#             if atom.split(':')[0] == 'GLY' and atom.split(':')[3] in ["O","CA","HA2","HA3","N","NH"]:
-#                 allatoms_data[atom]['chain'] = 'SC'
-#             else:
-#                 allatoms_data[atom]['chain'] = 'MC'
-#         else:
-#             allatoms_data[atom]['chain'] = 'SC'
+    prot = protein.atoms # define protein atoms
+    prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
+    allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
+    coords = {atom : pos for atom, pos in zip(allatoms, prot.positions)}
+    residues = [(res+':'+str(rid)+':'+sid) for res, rid, sid in zip(prot_resnames, prot_resids, prot_segids)] # HIS:26:A
+    chain = {} #like {'HIS:26:A:N': 'MC'}
+    for res, atom in zip(residues, prot_atoms):
+        if atom in ["N","O","C","CA","HA2","HA3"]:
+            if res[0:3] == 'GLY' and atom in ["O","CA","HA2","HA3","N","NH"]:
+                chain[res+':'+atom] = 'SC'
+            else:
+                chain[res+':'+atom] = 'MC'
+        else:
+            chain[res+':'+atom] = 'SC'
 
-#     acids_class = [AminoAcid(res) for res in prot.residues]
+    allatoms_data = {} # define dict of protein atoms' coords and chain types
+    for atom, position in zip(allatoms, prot.positions):
+        allatoms_data[atom] = {}
+        allatoms_data[atom]['coords'] = position
+        allatoms_data[atom]['chain'] = ''
+        if atom.split(':')[3] in ["N","O","C","CA","HA2","HA3"]:
+            if atom.split(':')[0] == 'GLY' and atom.split(':')[3] in ["O","CA","HA2","HA3","N","NH"]:
+                allatoms_data[atom]['chain'] = 'SC'
+            else:
+                allatoms_data[atom]['chain'] = 'MC'
+        else:
+            allatoms_data[atom]['chain'] = 'SC'
 
-#     with open(PDB.replace('.pdb', '_bonds'), 'w') as net:
-#         for i in range(len(acids_class)):
-#             for j in range(i+1, len(acids_class)):
-#                 bonds = find_pipi_bonds(acids_class[i], acids_class[j])
-#                 if bonds: 
-#                     for bond in bonds:
-#                         net.write(bond)
-#                 bonds = find_pication_bonds(acids_class[i], acids_class[j])
-#                 if bonds: 
-#                     for bond in bonds:
-#                         net.write(bond)
-#                 bonds = find_salt_bridges(acids_class[i], acids_class[j])
-#                 if bonds: 
-#                     net.write(bonds[0]) #why we write only one connection b/w acids
-#                     # for bond in bonds:
-#                         # net.write(bond)
-#                 bonds = find_disulfide_bonds(acids_class[i], acids_class[j])
-#                 if bonds: 
-#                     for bond in bonds:
-#                         net.write(bond)
+    acids_class = [AminoAcid(res) for res in prot.residues]
+
+    # WRITING INTERACTIONS
+    saltBridges = []
+    with open('Bonds', 'w') as net:
+        for i in range(len(acids_class)):
+            for j in range(i+1, len(acids_class)):
+                bonds = find_pipi_bonds(acids_class[i], acids_class[j])
+                if bonds: 
+                    for bond in bonds:
+                        net.write(bond)
+                bonds = find_pication_bonds(acids_class[i], acids_class[j])
+                if bonds: 
+                    for bond in bonds:
+                        net.write(bond)
+                bonds = find_salt_bridges(acids_class[i], acids_class[j])
+                if bonds: 
+                    net.write(bonds[0]) 
+                bonds = find_disulfide_bonds(acids_class[i], acids_class[j])
+                if bonds: 
+                    for bond in bonds:
+                        net.write(bond)
+
+    find_hydrogen_bonds(PDB, u, prot_segids, coords, chain, saltBridges)
+
+    find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
+    find_VanderWaals_bonds(PDB, prot, allatoms, chain) # new version
+    # select_vdw_bonds('1BTL_VanderWaals')
+    # select_vdw_bonds('1BTL_vdw')
+
+    find_metal_bonds(PDB, metalls, acids_class) 
+
+    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
+    ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='group')))
+
+    # CENTROIDS
+    # Calc weighted center of residues, where centroid_data.masses are weights
+    centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') 
+    center_coords = centroid_data.center(centroid_data.masses, compound='residues')
+    centroid = centroid_data.residues
+    centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
+    protein_centroids = dict(zip(centroid_names, center_coords))
+    
+    find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data)
+    find_ligand_atom_bonds_old(allatoms, chain, coords, ligand_centroids)
+
+    # find_centroid_bonds(centroid_coords)
+    find_centroid_centroid_bonds(protein_centroids)
+    find_centroid_ligand_bonds(protein_centroids, ligand_centroids)
+
 
 if __name__ == '__main__':
     t0 = time.time()
@@ -1103,116 +1137,6 @@ if __name__ == '__main__':
     prepare_secondary_structure_file(PDB, phi_data)
 
     prepare_rsa_file(PDB, phi_data)
-    
 
-    # ### MAIN ###
-    # Define mda.objects and create array of AminoAcid classes
     u = mda.Universe(PDB)
-    protein = u.select_atoms('protein') # u1 = u.select_atoms('protein and not name OXT')
-    hoh = u.select_atoms('resname HOH')
-    metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
-    ligands = u.select_atoms('not protein and not resname HOH') - metalls
-
-    prot = protein.atoms #define for each atom of protein
-    prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
-
-    allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # HIS:26:A:N
-
-    residues = [(res+':'+str(rid)+':'+sid) for res, rid, sid in zip(prot_resnames, prot_resids, prot_segids)] # HIS:26:A
-    # coords = {res+':'+atom : pos for res, atom, pos in zip(residues, prot_atoms, prot.positions)} # {HIS:26:A:N : array([2.61,1.454,10.018]}
-    coords = {atom : pos for atom, pos in zip(allatoms, prot.positions)}
-    chain = {} #like {'HIS:26:A:N': 'MC'}
-    for res, atom in zip(residues, prot_atoms):
-        if atom in ["N","O","C","CA","HA2","HA3"]:
-            if res[0:3] == 'GLY' and atom in ["O","CA","HA2","HA3","N","NH"]:
-                chain[res+':'+atom] = 'SC'
-            else:
-                chain[res+':'+atom] = 'MC'
-        else:
-            chain[res+':'+atom] = 'SC'
-
-    allatoms_data = {}
-    for atom, position in zip(allatoms, prot.positions):
-        allatoms_data[atom] = {}
-        allatoms_data[atom]['coords'] = position
-        allatoms_data[atom]['chain'] = ''
-        if atom.split(':')[3] in ["N","O","C","CA","HA2","HA3"]:
-            if atom.split(':')[0] == 'GLY' and atom.split(':')[3] in ["O","CA","HA2","HA3","N","NH"]:
-                allatoms_data[atom]['chain'] = 'SC'
-            else:
-                allatoms_data[atom]['chain'] = 'MC'
-        else:
-            allatoms_data[atom]['chain'] = 'SC'
-
-    # for residues of protein create AminoAcid class
-    acids_class = [AminoAcid(res) for res in prot.residues]
-
-    # prepare_bfactor_file(PDB, prot)
-    saltBridges = []
-    # Search interactions
-    with open(PDB.replace('.pdb', '_bonds'), 'w') as net:
-        for i in range(len(acids_class)):
-            for j in range(i+1, len(acids_class)):
-                bonds = find_pipi_bonds(acids_class[i], acids_class[j])
-                if bonds: 
-                    for bond in bonds:
-                        net.write(bond)
-                bonds = find_pication_bonds(acids_class[i], acids_class[j])
-                if bonds: 
-                    for bond in bonds:
-                        net.write(bond)
-                bonds = find_salt_bridges(acids_class[i], acids_class[j])
-                if bonds: 
-                    net.write(bonds[0]) #why we write only one connection b/w acids
-                    # for bond in bonds:
-                        # net.write(bond)
-                bonds = find_disulfide_bonds(acids_class[i], acids_class[j])
-                if bonds: 
-                    for bond in bonds:
-                        net.write(bond)
-    print(len(saltBridges))
-    # protein = u1.residues
-    # prot_resnames, prot_resids, prot_segids, prot_names = protein.resnames, protein.resids, protein.segids, protein.names
-
-    # h = hbonds(u, selection1='protein', selection2= 'protein', distance=2.5, distance_type='hydrogen', angle=120) 
-    # h.run()
-    # h.generate_table() 
-    find_hydrogen_bonds(PDB, u, prot_segids, coords, chain, saltBridges)
-
-    find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
-
-    find_VanderWaals_bonds(PDB, prot, allatoms, chain) # new version
-    # # VandWaals_awk_replacement(PDB.replace('.pdb','')+'_vdw')
-    # # VandWaals_awk_replacement(PDB.replace('.pdb','')+'_vdw2')
-
-    find_metal_bonds(PDB, metalls, acids_class) 
-
-    # # # Concatenate created files into one 
-    # # pdb = PDB.replace('.pdb', '')
-    # # print(pdb)
-    # # cmd = f'cat {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw_noRepulse2 {pdb}_metal > {pdb}_net'
-    # # os.system(cmd) 
-
-    # # Delete unneccessary files
-    # # cmd = f'rm {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw_noRepulse2 {pdb}_metal {pdb}_vdw {pdb}_vdw2'
-    # # os.system(cmd)
-
-    # LIGANDS
-    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
-    ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='group')))
-
-    # CENTROIDS
-    # Calc weighted center of residues, where centroid_data.masses are weights
-    centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') 
-    center_coords = centroid_data.center(centroid_data.masses, compound='residues')
-    centroid = centroid_data.residues
-    centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
-    protein_centroids = dict(zip(centroid_names, center_coords))
-    
-    find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data)
-    find_ligand_atom_bonds_old(allatoms, chain, coords)
-
-    # find_centroid_bonds(centroid_coords)
-    find_centroid_centroid_bonds(protein_centroids)
-    find_centroid_ligand_bonds(protein_centroids, ligand_centroids)
-    # find_centroid_ligand_bonds(PDB, centroid_coords, ligand_centroids)
+    main(u)
