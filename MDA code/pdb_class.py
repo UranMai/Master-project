@@ -415,7 +415,7 @@ def find_disulfide_bonds(res1, res2):
         # bond = ':'.join(acid1.split(':')[:3])+'\t'+':'.join(acid2.split(':')[:3])+'\tSCSC'+prs.DISULF_CONST+'SS\tSG\tSG\n'
         return bond
 
-def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
+def find_hydrogen_bonds(PDB, u, segids, allatoms_data, saltBridges):
     '''
     @description
         Generate table of hydrogen bonds (MDAnalysis.HydrogenBondAnalysis) with parameters: 
@@ -431,10 +431,10 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
             Not include bonds b/w donor and acceptor that are involved in salt bridges.
             Hydrogen and acceptor must be from non-adjacent residues
             Confine distances b/w  hydrogen-acceptor and donor-acceptor
-
     @input
         u - MDAnalysis Universe used to call HydrogenBondAnalysis
         segids - list of atoms' segids defined as u.atoms.segids
+        allatoms_data - dict of atom name and their positions and chain types (MC or SC)
         coords - dict of atom names and their positions
         chain - dict of atom names and chain type (MC or SC)
     @return 
@@ -466,7 +466,8 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
             if (dA in prs.nextAcid) and prs.isAcceptor(acceptor):
                 alpha = hbond[10] # D-H_A angle 
                 d1 = hbond[9] # hydrogen-acceptor distance, cutoff=3.5
-                d2 = MDdist3D(coords[donor], coords[acceptor]) # donor-acceptor distance, cutoff=4.5
+                d2 = MDdist3D(allatoms_data[donor]['coords'], allatoms_data[acceptor]['coords'])
+                # d2 = MDdist3D(coords[donor], coords[acceptor]) # donor-acceptor distance, cutoff=4.5
                 if d1 > prs.H_A_dist_cutoff or d2 > prs.D_A_dist_cutoff: 
                     continue
 
@@ -475,19 +476,20 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
                 if len(aNext)==2: 
                     neighbor1 = ":".join(acceptor.split(":")[0:3])+":"+aNext[0]
                     neighbor2 = ":".join(acceptor.split(":")[0:3])+":"+aNext[1]
-                    AA = (coords[neighbor1]+coords[neighbor2])/2
+                    AA_coords = (allatoms_data[neighbor1]['coords']+allatoms_data[neighbor2]['coords'])/2
                 else:
-                    AA = coords[":".join(acceptor.split(":")[0:3])+":"+aNext[0]]
+                    neighbor1 = ":".join(acceptor.split(":")[0:3])+":"+aNext[0]
+                    AA_coords = allatoms_data[neighbor1]['coords']
 
                 # Define beta angle b/w AA-acceptor-hydrogen
-                a = AA - coords[acceptor]
-                b = coords[hydrogen] - coords[acceptor]
+                a = AA_coords - allatoms_data[acceptor]['coords']
+                b = allatoms_data[hydrogen]['coords'] - allatoms_data[acceptor]['coords']
                 beta = np.degrees(mda.lib.mdamath.angle(a, b))
                 beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
 
                 # Define gamma angle b/w AA-acceptor-donor
-                a = AA - coords[acceptor]
-                b = coords[donor] - coords[acceptor]
+                a = AA_coords - allatoms_data[acceptor]['coords']
+                b = allatoms_data[donor]['coords'] - allatoms_data[acceptor]['coords']
                 gamma = np.degrees(mda.lib.mdamath.angle(a, b)) 
 
                 if [(prs.hydrogen[dH]!='S' and hbond[8]!='S' and d1 < prs.hb_d1 and d2 < prs.hb_d2 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
@@ -521,17 +523,16 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
                         E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP2', sphyb2='SP3', alpha=alpha, beta=beta)
 
                     elif prs.SPHyb(donor)=="SP2" and prs.SPHyb(acceptor)=="SP2":
-                        normalVecDonor = prs.normalDonorVecToPlane(donor, coords)
+                        normalVecDonor = prs.normalDonorVecToPlane(donor, allatoms_data)
                         if normalVecDonor is None:
                             continue
-                        normalVecAcceptor = prs.normalAcceptorVecToPlane(acceptor, coords)
+                        normalVecAcceptor = prs.normalAcceptorVecToPlane(acceptor, allatoms_data)
                         if normalVecAcceptor is None:
                             continue
                         psi = np.degrees(mda.lib.mdamath.angle(normalVecDonor,normalVecAcceptor))
                         E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP2', sphyb2='SP2', alpha=alpha, beta=beta, psi=psi)
 
-                    # hydrogenBonds.append(hydrogen+"\t"+acceptor+"\t"+chain[donor]+chain[acceptor]+"\t"+str(d1)+"\t"+str(d2)+"\t"+str(alpha)+"\t"+str(beta)+"\t"+str(gamma)+"\t"+donor+"\t"+str(E)+"\t"+donor.split(":")[3]+"\t"+acceptor.split(":")[3]+"\n")
-                    hydrogenBonds.append(hydrogen+'\t'+acceptor+'\t'+donor+'\t'+chain[donor]+chain[acceptor]+'\t'+str(d1)+'\t'+str(E))
+                    hydrogenBonds.append(hydrogen+'\t'+acceptor+'\t'+donor+'\t'+allatoms_data[donor]['chain']+allatoms_data[acceptor]['chain']+'\t'+str(d1)+'\t'+str(E))
 
     out = open(PDB.replace('.pdb','_hb'), 'w')
     finalHydrogenBonds = []
@@ -569,7 +570,7 @@ def find_hydrogen_bonds(PDB, u, segids, coords, chain, saltBridges):
                 out.write(bond)
     out.close() 
 
-def find_VanderWaals_bonds(PDB, protein, allatoms, chain):
+def find_VanderWaals_bonds(PDB, protein, allatoms, allatoms_data):
     '''
     @description
         This is a method which uses mainly mda.objects. It takes moroe time then 2nd method 
@@ -596,20 +597,20 @@ def find_VanderWaals_bonds(PDB, protein, allatoms, chain):
         for j in k:
             atom2 = protein[j]
             acid2 = allatoms[j]
-            if acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2] in vdw1 or acid2+'\t'+acid1+'\t'+chain[acid2]+chain[acid1] in vdw1:
+            if (acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain'] in vdw1 or 
+                acid2+'\t'+acid1+'\t'+allatoms_data[acid2]['chain']+allatoms_data[acid1]['chain'] in vdw1):
                 continue
             
             if atom1.resid!=atom2.resid and atom1.name in prs.radii and atom2.name in prs.radii:
                 rm = prs.radii[atom1.name]+prs.radii[atom2.name]
                 r = MDdist3D(atom1.position, atom2.position)
 
-                if r-rm < 0.5 and not (np.abs(atom1.resid-atom2.resid)==1 and chain[acid1]=='MC' and chain[acid2]=='MC'):
-                    if not acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2] in vdw1:
-                        vdw1[acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2]] = []
+                if r-rm < 0.5 and not (np.abs(atom1.resid-atom2.resid)==1 and allatoms_data[acid1]['chain']=='MC' and allatoms_data[acid2]['chain']=='MC'):
+                    if not acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain'] in vdw1:
+                        vdw1[acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain']] = []
 
                     E = prs.energy_vdw(rm , r)
-                    vdw1[acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2]].append(E)
-
+                    vdw1[acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain']].append(E)
                     # if (('C' in atom1.name and 'C' in atom2.name) or 
                     #   ('C' in atom1.name and atom2.name in ['NE2','OE1','ND2','OD1'] and atom2.resname in ['GLN', 'ASN']) or 
                     #   ('C' in atom2.name and atom1.name in ['NE2','OE1','ND2','OD1'] and atom1.resname in ['GLN', 'ASN'])):
@@ -634,7 +635,7 @@ def find_VanderWaals_bonds(PDB, protein, allatoms, chain):
     #           out.write(contact+'\t'+str(sum(vdw2[contact]))+'\n')
 
      
-def find_vdw_bonds(PDB, protein, resnames, resids, segids, names, coords, chain):
+def find_vdw_bonds(PDB, protein, allatoms, allatoms_data):
     '''
     @description
         This is a method which uses mainly mda.objects. It takes moroe time then 2nd method 
@@ -668,42 +669,43 @@ def find_vdw_bonds(PDB, protein, resnames, resids, segids, names, coords, chain)
     vdw1, vdw2 = {}, {}
 
     for i, k in enumerate(van_atom):
-        elem1 = resnames[i]+':'+str(resids[i])+':'+segids[i]+':'+names[i]
-        res1 = resnames[i]+':'+str(resids[i])+':'+segids[i]
-        atom1 = names[i]
+        elem1 = allatoms[i]
+        res1 = ':'.join(elem1.split(':')[:3])
+        atom1 = elem1.split(':')[3]
         for j in k:
-            elem2 = resnames[j]+':'+str(resids[j])+':'+segids[j]+':'+names[j]
-            res2 = resnames[j]+':'+str(resids[j])+':' +str(segids[j])
-            atom2 = names[j]
-            if res2+'\t'+res1+'\t'+chain[elem2]+chain[elem1]+'\t'+atom2+'\t'+atom1 in vdw1:
+            elem2 = allatoms[j]
+            res2 = ':'.join(elem2.split(':')[:3])
+            atom2 = elem2.split(':')[3]
+            if res2+'\t'+res1+'\t'+allatoms_data[elem2]['chain']+allatoms_data[elem1]['chain']+'\t'+atom2+'\t'+atom1 in vdw1:
                 continue
             if (not res1==res2 and atom1 in prs.radii and atom2 in prs.radii):
                 rm = prs.radii[atom1] + prs.radii[atom2] 
-                r = MDdist3D(coords[elem1], coords[elem2]) 
+                r = MDdist3D(allatoms_data[elem1]['coords'], allatoms_data[elem2]['coords'])
 
-                if r - rm < .5 and not (np.abs(int(elem1.split(':')[1]) - int(elem2.split(':')[1]))==1 and chain[elem1]=="MC" and chain[elem2]=="MC"):
+                if r - rm < .5 and not (np.abs(int(elem1.split(':')[1]) - int(elem2.split(':')[1]))==1 and allatoms_data[elem1]['chain']=="MC" and allatoms_data[elem2]['chain']=="MC"):
+                    if not res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2 in vdw1:
+                        vdw1[res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2] = []
 
-                    if not res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2 in vdw1:
-                        vdw1[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2] = []
                     E = prs.energy_vdw(rm , r) 
-                    vdw1[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2].append(E)
-                    if (("C" in atom1 and "C" in atom2) or 
-                        ("C" in atom1 and atom2 in ["NE2","OE1","ND2","OD1"] and res2.split(" ")[0] in ["GLN","ASN"]) or 
-                        (atom1 in ["NE2","OE1","ND2","OD1"] and res1.split(" ")[0] in ["GLN","ASN"] and "C" in atom2)):
+                    vdw1[res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2].append(E)
+                    # if (("C" in atom1 and "C" in atom2) or 
+                    #     ("C" in atom1 and atom2 in ["NE2","OE1","ND2","OD1"] and res2.split(" ")[0] in ["GLN","ASN"]) or 
+                    #     (atom1 in ["NE2","OE1","ND2","OD1"] and res1.split(" ")[0] in ["GLN","ASN"] and "C" in atom2)):
                     
-                        if not res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2 in vdw2:
-                            vdw2[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2] = []
-                        vdw2[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2].append(E)
+                    #     if not res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2 in vdw2:
+                    #         vdw2[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2] = []
+
+                    #     vdw2[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2].append(E)
    
     with open(PDB.replace(".pdb","_vdw"),'w') as out:
         for contact in vdw1:
             if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
                 out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
 
-    with open(PDB.replace(".pdb","_vdw"),'w') as out:
-        for contact in vdw2:
-            if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
-                out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
+    # with open(PDB.replace(".pdb","_vdw"),'w') as out:
+    #     for contact in vdw2:
+    #         if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
+    #             out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
 
 def find_metal_bonds(PDB, metalls, acids_class):
     '''
@@ -818,7 +820,7 @@ def find_dna_bonds(u, allatoms_data):
             out.write(dna_atom+'\t'+prot_atom+'\tMC'+allatoms_data[prot_atom]['chain']+'\t10\tDNA\tNT\n')
 
 
-def find_ligand_atom_bonds_new(PDB, ligand_centroids, atoms_dict):
+def find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data):
     '''
     @description
         Consider sidechained atom, for it create 'distances' dict with 'dist' and 'ligand' keys
@@ -837,7 +839,7 @@ def find_ligand_atom_bonds_new(PDB, ligand_centroids, atoms_dict):
     '''
     ligand_distances = {}
     with open('Ligands_new', 'w') as out:
-        for atom, atom_data in atoms_dict.items():
+        for atom, atom_data in allatoms_data.items():
             if atom_data['chain'] == 'SC':
                 ligand_distances[atom] = {}
                 ligand_distances[atom]['dist'] = prs.ligand_dist #tmp distance - 150
@@ -865,7 +867,7 @@ def find_ligand_atom_bonds_new(PDB, ligand_centroids, atoms_dict):
         #             out.write(atom+'\t'+ligand+'\t'+str(ligand_distances[atom]['dist'])+'\n')
     
 
-def find_ligand_atom_bonds_old(allatoms, chain, coords, ligand_centroids): # old version 
+def find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids): # old version 
     '''
     @description
         iterate through protein atoms and ligands, finding distance b/w them and write to file
@@ -873,10 +875,12 @@ def find_ligand_atom_bonds_old(allatoms, chain, coords, ligand_centroids): # old
     '''
     with open('Ligands_old','w') as out:
         for atom in allatoms:
-            if chain[atom] == 'SC':
+            # if chain[atom] == 'SC':
+            if allatoms_data[atom]['chain'] == 'SC':
                 tmpdist0 = prs.ligand_dist
                 for ligand in sorted(ligand_centroids.keys()):
-                    tmpdist1 = MDdist3D(coords[atom], ligand_centroids[ligand])
+                    tmpdist1 = MDdist3D(allatoms_data[atom]['coords'], ligand_centroids[ligand])
+                    # tmpdist1 = MDdist3D(coords[atom], ligand_centroids[ligand])
                     if tmpdist1 > tmpdist0:
                         continue
                     out.write(atom+'\t'+ligand+'\t'+str(tmpdist1)+'\n')
@@ -1041,17 +1045,6 @@ def main(u):
     prot = protein.atoms # define protein atoms
     prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
     allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
-    coords = {atom : pos for atom, pos in zip(allatoms, prot.positions)}
-    residues = [(res+':'+str(rid)+':'+sid) for res, rid, sid in zip(prot_resnames, prot_resids, prot_segids)] # HIS:26:A
-    chain = {} #like {'HIS:26:A:N': 'MC'}
-    for res, atom in zip(residues, prot_atoms):
-        if atom in ["N","O","C","CA","HA2","HA3"]:
-            if res[0:3] == 'GLY' and atom in ["O","CA","HA2","HA3","N","NH"]:
-                chain[res+':'+atom] = 'SC'
-            else:
-                chain[res+':'+atom] = 'MC'
-        else:
-            chain[res+':'+atom] = 'SC'
 
     allatoms_data = {} # define dict of protein atoms' coords and chain types
     for atom, position in zip(allatoms, prot.positions):
@@ -1089,10 +1082,11 @@ def main(u):
                     for bond in bonds:
                         net.write(bond)
 
-    find_hydrogen_bonds(PDB, u, prot_segids, coords, chain, saltBridges)
+    find_hydrogen_bonds(PDB, u, prot_segids, allatoms_data, saltBridges)
 
-    find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
-    find_VanderWaals_bonds(PDB, prot, allatoms, chain) # new version
+    # find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
+    find_vdw_bonds(PDB, prot, allatoms, allatoms_data)
+    find_VanderWaals_bonds(PDB, prot, allatoms, allatoms_data) # new version
     # select_vdw_bonds('1BTL_VanderWaals')
     # select_vdw_bonds('1BTL_vdw')
 
@@ -1110,7 +1104,7 @@ def main(u):
     protein_centroids = dict(zip(centroid_names, center_coords))
     
     find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data)
-    find_ligand_atom_bonds_old(allatoms, chain, coords, ligand_centroids)
+    find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids)
 
     # find_centroid_bonds(centroid_coords)
     find_centroid_centroid_bonds(protein_centroids)
