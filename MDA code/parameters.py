@@ -174,7 +174,7 @@ acceptor_dict = {'ASN' : {'OD1' : ['CG', 'CB']},
                  'O' : ['C', 'CA']}
 
 
-def normalDonorVecToPlane(A, coords):
+def normalDonorVecToPlane(A, allatoms_data):
     '''
     calculate coords of normal to donor acid
     Take as input name of Donor (A) and coord dictionary
@@ -184,19 +184,23 @@ def normalDonorVecToPlane(A, coords):
     atom = A.split(':')[3]
     if (r in donor_dict and atom in donor_dict[r]):
         a1, a2 =donor_dict[r][atom]
-        a = coords[res+a1] - coords[res+atom]
-        b = coords[res+a2] - coords[res+atom]
+        a = allatoms_data[res+a1]['coords'] - allatoms_data[res+atom]['coords']
+        b = allatoms_data[res+a2]['coords'] - allatoms_data[res+atom]['coords']
+        # a = coords[res+a1] - coords[res+atom]
+        # b = coords[res+a2] - coords[res+atom]
         normal = np.cross(a, b)
     elif atom == 'N':
         a1, a2 = donor_dict[atom]
-        a = coords[res+a1] - coords[res+atom]
-        b = coords[res+a2] - coords[res+atom]
+        a = allatoms_data[res+a1]['coords'] - allatoms_data[res+atom]['coords']
+        b = allatoms_data[res+a2]['coords'] - allatoms_data[res+atom]['coords']
+        # a = coords[res+a1] - coords[res+atom]
+        # b = coords[res+a2] - coords[res+atom]
         normal = np.cross(a, b)
     else:
         return None
     return normal
 
-def normalAcceptorVecToPlane(A, coords):
+def normalAcceptorVecToPlane(A, allatoms_data):
     '''
     calculate coords of normal to Acceptor acid
     Take as input name of Acceptor (A) and coord dictionary
@@ -206,13 +210,17 @@ def normalAcceptorVecToPlane(A, coords):
     atom = A.split(':')[3]
     if (r in acceptor_dict and atom in acceptor_dict[r]):
         a1, a2 = acceptor_dict[r][atom]
-        a = coords[res+a1] - coords[res+atom]
-        b = coords[res+a2] - coords[res+atom]
+        a = allatoms_data[res+a1]['coords'] - allatoms_data[res+atom]['coords']
+        b = allatoms_data[res+a2]['coords'] - allatoms_data[res+atom]['coords']
+        # a = coords[res+a1] - coords[res+atom]
+        # b = coords[res+a2] - coords[res+atom]
         normal = np.cross(a, b)
     elif atom == 'O':
         a1, a2 = acceptor_dict[atom]
-        a = coords[res+a1] - coords[res+atom]
-        b = coords[res+a2] - coords[res+atom]
+        a = allatoms_data[res+a1]['coords'] - allatoms_data[res+atom]['coords']
+        b = allatoms_data[res+a2]['coords'] - allatoms_data[res+atom]['coords']
+        # a = coords[res+a1] - coords[res+atom]
+        # b = coords[res+a2] - coords[res+atom]
         normal = np.cross(a, b)
     else:
         return None
