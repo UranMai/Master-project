@@ -36,11 +36,11 @@ print(f'Number of frames (time steps) - {total_frames}')
 ###############
 # https://www.mdanalysis.org/2020/03/09/on-the-fly-transformations/
 # for transformations can be used custom atom group
-transforms = (trans.unwrap(u.atoms), # u.atoms
-              trans.center_in_box(prot, wrap=True), 
-              trans.wrap(u.atoms))
+# transforms = (trans.unwrap(u.atoms), # u.atoms
+#               trans.center_in_box(prot, wrap=True), 
+#               trans.wrap(u.atoms))
 
-u.trajectory.add_transformations(*transforms)
+# u.trajectory.add_transformations(*transforms)
 
 
 # ################
@@ -92,7 +92,7 @@ Write atoms positions for considered frames
     'all' - select all frames
     'k_frame' - select each k-th frame from trajectory
 '''
-select = 'k_frame'
+select = 'centroid'
 frames_dict = {}
 if select == 'centroid':
     centroids, weights = cluster_frames(universe=u, n_clusters=2, method='k-means')
@@ -113,95 +113,14 @@ print(frames_dict.keys())
 prepare_secondary_structure_file(file1, phi_data)
 prepare_rsa_file(file1, phi_data)
 
-def create_net_files(ts, frames_dict):
-    '''
-    @description
-        Create final data with all interactions on each time step
-        -Define Universe and other common variables for each time step
-        -
-    @input
-        ts - time step of MD trajectory
-        frames_dict - data with atoms positions of MD trajectory
-    '''
+for ts in frames_dict.keys(): # iterate over most valuable time steps
     test = '../Test_data/adk_oplsaa.pdb' 
     file1 = test.replace('.pdb', f'_{ts}.pdb')
-    print(file1)
+    print('Process'+file1+'\t'+str(ts)+'frame')
     u = mda.Universe(PDB, frames_dict[ts])
-    protein = u.select_atoms('protein') 
+    main(file1, u)
+    print('Processing ends')
 
-    hoh = u.select_atoms('resname HOH')
-    metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
-    # ligands = allatoms - protein - hoh_atoms - metalls
-    ligands = u.select_atoms('not protein and not resname HOH') - metalls
-
-    prot = protein.atoms #define for each atom of protein
-    prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
-
-    allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # HIS:26:A:N
-
-    residues = [(res+':'+str(rid)+':'+sid) for res, rid, sid in zip(prot_resnames, prot_resids, prot_segids)] # HIS:26:A
-    # coords = {res+':'+atom : pos for res, atom, pos in zip(residues, prot_atoms, prot.positions)} # {HIS:26:A:N : array([2.61,1.454,10.018]}
-    coords = {atom : pos for atom, pos in zip(allatoms, prot.positions)}
-    chain = {} #like {'HIS:26:A:N': 'MC'}
-    for res, atom in zip(residues, prot_atoms):
-        if atom in ["N","O","C","CA","HA2","HA3"]:
-            if res[0:3] == 'GLY' and atom in ["O","CA","HA2","HA3","N","NH"]:
-                chain[res+':'+atom] = 'SC'
-            else:
-                chain[res+':'+atom] = 'MC'
-        else:
-            chain[res+':'+atom] = 'SC'
-
-    acids_class = [AminoAcid(res) for res in prot.residues]
-    
-    saltBridges = []
-
-    # Writing files for PIPI,PICation, SB, Disulfide bonds
-    with open(file1.replace('.pdb', '_bonds'), 'w') as net:
-        for i in range(len(acids_class)):
-            for j in range(i+1, len(acids_class)):
-                bonds = find_pipi_bonds(acids_class[i], acids_class[j])
-                if bonds: 
-                    for bond in bonds:
-                        net.write(bond)
-                bonds = find_pication_bonds(acids_class[i], acids_class[j])
-                if bonds: 
-                    for bond in bonds:
-                        net.write(bond)
-                # bonds = find_salt_bridges(acids_class[i], acids_class[j])
-                # if bonds: 
-                #     net.write(bonds[0]) #why we write only one connection b/w acids
-                bonds = find_disulfide_bonds(acids_class[i], acids_class[j])
-                if bonds: 
-                    for bond in bonds:
-                        net.write(bond)
-
-    # Find hydrogen bonds
-    # find_hydrogen_bonds(file1, u, prot_segids, coords, chain)
-
-    # Find vanderWaals bonds
-    find_vdw_bonds(file1, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain)
-
-    find_metal_bonds(file1, metalls, acids_class)
-
-    # LIGANDS
-    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
-    ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='group')))
-
-    # CENTROIDS
-    # Calc weighted center of residues, where centroid_data.masses are weights
-    centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') 
-    center_coords = centroid_data.center(centroid_data.masses, compound='group')
-    centroid = centroid_data.residues
-    centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
-    centroid_coords = dict(zip(centroid_names, center_coords))
-    
-    # find_ligand_atom_bonds(file1, allatoms, ligand_centroids, chain, coords)
-    # find_centroid_bonds(centroid_coords)
-    # find_centroid_ligand_bonds(file1, centroid_coords, ligand_centroids)
-   
-
-# for ts in frames_dict.keys(): # iterate over most valuable time steps
     # create_net_files(ts, frames_dict) # call function to create file with interactions, then run network analysis
     # cmd = f"sed -i 's/SYSTEM/-/g' adk_oplsaa_{ts}_net"
     # os.system(cmd)
