@@ -10,26 +10,9 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.simplefilter(action='ignore', category=FutureWarning)
-# pip install --upgrade MDAnalysisTests
 from MDAnalysis.tests.datafiles import PDB, XTC
-
 # Input data, same as PDB, XTC from tests.datafiles
-# https://github.com/MDAnalysis/mdanalysis/blob/develop/testsuite/MDAnalysisTests/data/adk_oplsaa.pdb
-# https://github.com/MDAnalysis/mdanalysis/blob/develop/testsuite/MDAnalysisTests/data/adk_oplsaa.xtc
-# PDB = '../Test_data/adk_oplsaa.pdb'  
-# XTC = '../Test_data/adk_oplsaa.xtc'
-# PHI = 'adk_oplsaa.phi'
 
-file1 = '../Test_data/adk_oplsaa.pdb' 
-# PHI = PDB.replace('.pdb', '.phi')
-PHI = '../Test_data/adk_oplsaa.phi'
-phifile = open(PHI, 'r').readlines()
-phi_data = [line for line in phifile if 'ASG' in line]  
-
-u = mda.Universe(PDB, XTC)
-prot = u.select_atoms('protein')
-total_frames = u.trajectory.n_frames # total number of frames 
-print(f'Number of frames (time steps) - {total_frames}')
 
 ###############
 ###Centering###
@@ -82,46 +65,62 @@ def cluster_frames(universe, n_clusters, method='k-means'):
 
 def create_Kth_frames(k, total_frames):
     k_frames = list(range(total_frames))[::k]
+    print('These frames: ', *k_frames, 'will be processed')
     return k_frames
 
+# these files now changes tpr file
+# prepare_secondary_structure_file(file1, phi_data)
+# prepare_rsa_file(file1, phi_data)
 
-'''
-For selected time frames create dict of atoms positions
-Write atoms positions for considered frames 
-    'centroid' - select frames from clustering function
-    'all' - select all frames
-    'k_frame' - select each k-th frame from trajectory
-'''
-select = 'centroid'
-frames_dict = {}
-if select == 'centroid':
-    centroids, weights = cluster_frames(universe=u, n_clusters=2, method='k-means')
-    for ts in u.trajectory:
-        if ts.frame in centroids.values():
-            frames_dict[ts.frame] = u.atoms.positions
-elif select == 'k_frame':
-    k_frames = create_Kth_frames(5, total_frames)
-    for ts in u.trajectory:
-        if ts.frame in k_frames:
-            frames_dict[ts.frame] = u.atoms.positions
-elif select == 'all':
-    frames_dict[ts.frame] = u.atoms.positions
+if __name__ == '__main__':  
+    tpr = sys.argv[1] # topology file
+    xtc = sys.argv[2] # trajectory file
+    # maybe must be third arg, PDB file
 
+    file1 = 'run_1.tpr' 
+    # PHI = PDB.replace('.pdb', '.phi')
+    # PHI = '1BTL.phi'
+    # phifile = open(PHI, 'r').readlines()
+    # phi_data = [line for line in phifile if 'ASG' in line]  
 
-print(frames_dict.keys())
+    u = mda.Universe(tpr, xtc)
+    prot = u.select_atoms('protein')
+    total_frames = u.trajectory.n_frames # total number of frames 
+    print(f'Number of frames (time steps) - {total_frames}')
 
-prepare_secondary_structure_file(file1, phi_data)
-prepare_rsa_file(file1, phi_data)
+    '''
+    For selected time frames create dict of atoms positions
+    Write atoms positions for considered frames 
+        'centroid' - select frames from clustering function
+        'all' - select all frames
+        'k_frame' - select each k-th frame from trajectory
+    '''
+    select = 'k_frame'
+    frames_dict = {}
+    if select == 'centroid':
+        centroids, weights = cluster_frames(universe=u, n_clusters=2, method='k-means')
+        for ts in u.trajectory:
+            if ts.frame in centroids.values():
+                frames_dict[ts.frame] = u.atoms.positions
+    elif select == 'k_frame':
+        k_frames = create_Kth_frames(100, total_frames)
+        for ts in u.trajectory:
+            if ts.frame in k_frames:
+                frames_dict[ts.frame] = u.atoms.positions
+    elif select == 'all':
+        frames_dict[ts.frame] = u.atoms.positions
 
-for ts in frames_dict.keys(): # iterate over most valuable time steps
-    test = '../Test_data/adk_oplsaa.pdb' 
-    file1 = test.replace('.pdb', f'_{ts}.pdb')
-    print('Process'+file1+'\t'+str(ts)+'frame')
-    u = mda.Universe(PDB, frames_dict[ts])
-    main(file1, u)
-    print('Processing ends')
+    # these files now changes tpr file
+    # prepare_secondary_structure_file(file1, phi_data)
+    # prepare_rsa_file(file1, phi_data)
+
+    for ts in frames_dict.keys(): # iterate over most valuable time steps
+        file1 = f'1btl_{ts}.pdb'
+        print(f'Process  {ts}th frame')
+        u = mda.Universe(tpr, frames_dict[ts])
+        main(file1, u)
+        print(f'End process of  {ts}th frame')
 
     # create_net_files(ts, frames_dict) # call function to create file with interactions, then run network analysis
     # cmd = f"sed -i 's/SYSTEM/-/g' adk_oplsaa_{ts}_net"
     # os.system(cmd)
-
