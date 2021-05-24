@@ -18,3 +18,10 @@ and ligand files
 ```sh
 python pdb_class.py
 ```
+
+\
+Consider topology (**run_1.tpr**) and trajectory files (**run_1.xtc**). Scripts process: clusters centroid frames, each k-th frame and all frames.
+After run main function from ```pdb_class.py``` on each frame and compute protein bonds
+```sh
+python cluster_frames run_1.tpr run_1.xtc
+```
