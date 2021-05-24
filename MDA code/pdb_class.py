@@ -326,7 +326,7 @@ def find_pication_bonds(res1, res2):
             # out.append(bond)
             out.append(res_name[i]+'\t'+cation+'\tSCSC'+prs.PICATION_CONST+'PICAT\t'+'\n')
     return out
-
+saltBridges = []
 def find_salt_bridges(res1, res2):
     '''
     @description
@@ -342,7 +342,7 @@ def find_salt_bridges(res1, res2):
         - list of acids for writing to file  
     '''
     # global saltBridges
-    saltBridges = []
+    # saltBridges = []
     # check not None residues and call coords, atoms involved in salt bridges
     if res1.sb is None or res2.sb is None:
         return None
@@ -485,7 +485,7 @@ def find_hydrogen_bonds(PDB, u, segids, allatoms_data, saltBridges):
                 a = AA_coords - allatoms_data[acceptor]['coords']
                 b = allatoms_data[hydrogen]['coords'] - allatoms_data[acceptor]['coords']
                 beta = np.degrees(mda.lib.mdamath.angle(a, b))
-                beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
+                beta = prs.STRAIGHT_ANGLE-beta if beta<prs.RIGHT_ANGLE else beta
 
                 # Define gamma angle b/w AA-acceptor-donor
                 a = AA_coords - allatoms_data[acceptor]['coords']
@@ -511,7 +511,7 @@ def find_hydrogen_bonds(PDB, u, segids, allatoms_data, saltBridges):
                             acceptorBonds[acceptor] = acceptorBonds[acceptor][0:1] 
                     if hbond[8] == "O" and hbond[6]=="HOH":
                         acceptorBonds[acceptor].append(d1)
-                    # beta = prs.STRAIGHT_ANGLE-beta if beta>prs.RIGHT_ANGLE else beta
+                    # beta = prs.STRAIGHT_ANGLE-beta if beta<prs.RIGHT_ANGLE else beta
 
                     if prs.SPHyb(donor)=="SP3" and prs.SPHyb(acceptor)=="SP3":
                         E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP3', sphyb2='SP3', alpha=alpha, beta=beta) 
@@ -611,28 +611,30 @@ def find_VanderWaals_bonds(PDB, protein, allatoms, allatoms_data):
 
                     E = prs.energy_vdw(rm , r)
                     vdw1[acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain']].append(E)
-                    # if (('C' in atom1.name and 'C' in atom2.name) or 
-                    #   ('C' in atom1.name and atom2.name in ['NE2','OE1','ND2','OD1'] and atom2.resname in ['GLN', 'ASN']) or 
-                    #   ('C' in atom2.name and atom1.name in ['NE2','OE1','ND2','OD1'] and atom1.resname in ['GLN', 'ASN'])):
-                    #   if not acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2] in vdw2:
-                    #       vdw2[acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2]] = []
-                    #   vdw2[acid1+'\t'+acid2+'\t'+chain[acid1]+chain[acid2]].append(E)
+
+                    if (('C' in atom1.name and 'C' in atom2.name) or 
+                        ('C' in atom1.name and atom2.name in ['NE2','OE1','ND2','OD1'] and atom2.resname in ['GLN', 'ASN']) or 
+                        ('C' in atom2.name and atom1.name in ['NE2','OE1','ND2','OD1'] and atom1.resname in ['GLN', 'ASN'])):
+                        if not acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain'] in vdw2:
+                            vdw2[acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain']] = []
+                        vdw2[acid1+'\t'+acid2+'\t'+allatoms_data[acid1]['chain']+allatoms_data[acid2]['chain']].append(E)
                     
 
     with open(PDB.replace(".pdb","_VanderWaals"),'w') as out:
         for contact in vdw1:
             if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
-                out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
+                out.write(contact+'\t'+str(sum(vdw1[contact]))+'\tVDW\n')
 
     # with open(PDB.replace('.pdb', '_VanderWaals_new'), 'w') as out:
     #   for contact in vdw1:
     #       if not (sum(vdw1[contact]) < 0):
     #           out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
 
-    # with open(PDB.replace(".pdb","_VanderWaals1"),'w') as out:
-    #   for contact in vdw2:
-    #       if not (sum(vdw2[contact])<0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[5]))==1):
-    #           out.write(contact+'\t'+str(sum(vdw2[contact]))+'\n')
+    with open(PDB.replace(".pdb","_VanderWaals2"),'w') as out:
+        for contact in vdw2:
+            # if not (sum(vdw2[contact])<0 and abs(int(contact.split(':')[1]) - int(contact.split(':')[5]))==1):
+            if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
+                out.write(contact+'\t'+str(sum(vdw2[contact]))+'\tVDW2\n')
 
      
 def find_vdw_bonds(PDB, protein, allatoms, allatoms_data):
@@ -676,36 +678,40 @@ def find_vdw_bonds(PDB, protein, allatoms, allatoms_data):
             elem2 = allatoms[j]
             res2 = ':'.join(elem2.split(':')[:3])
             atom2 = elem2.split(':')[3]
-            if res2+'\t'+res1+'\t'+allatoms_data[elem2]['chain']+allatoms_data[elem1]['chain']+'\t'+atom2+'\t'+atom1 in vdw1:
+            if (elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain'] in vdw1 or
+                elem2+'\t'+elem1+'\t'+allatoms_data[elem2]['chain']+allatoms_data[elem1]['chain'] in vdw1):
                 continue
             if (not res1==res2 and atom1 in prs.radii and atom2 in prs.radii):
                 rm = prs.radii[atom1] + prs.radii[atom2] 
                 r = MDdist3D(allatoms_data[elem1]['coords'], allatoms_data[elem2]['coords'])
 
                 if r - rm < .5 and not (np.abs(int(elem1.split(':')[1]) - int(elem2.split(':')[1]))==1 and allatoms_data[elem1]['chain']=="MC" and allatoms_data[elem2]['chain']=="MC"):
-                    if not res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2 in vdw1:
-                        vdw1[res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2] = []
+                    # if not res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2 in vdw1:
+                        # vdw1[res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2] = []
+                    if not elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain'] in vdw1:
+                        vdw1[elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']] = []
 
                     E = prs.energy_vdw(rm , r) 
-                    vdw1[res1+'\t'+res2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']+'\t'+atom1+'\t'+atom2].append(E)
-                    # if (("C" in atom1 and "C" in atom2) or 
-                    #     ("C" in atom1 and atom2 in ["NE2","OE1","ND2","OD1"] and res2.split(" ")[0] in ["GLN","ASN"]) or 
-                    #     (atom1 in ["NE2","OE1","ND2","OD1"] and res1.split(" ")[0] in ["GLN","ASN"] and "C" in atom2)):
-                    
-                    #     if not res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2 in vdw2:
-                    #         vdw2[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2] = []
+                    vdw1[elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']].append(E)
 
-                    #     vdw2[res1+'\t'+res2+'\t'+chain[elem1]+chain[elem2]+'\t'+atom1+'\t'+atom2].append(E)
+                    if (("C" in atom1 and "C" in atom2) or 
+                        ("C" in atom1 and atom2 in ["NE2","OE1","ND2","OD1"] and res2.split(":")[0] in ["GLN","ASN"]) or 
+                        ("C" in atom2 and atom1 in ["NE2","OE1","ND2","OD1"] and res1.split(":")[0] in ["GLN","ASN"])):
+                    
+                        if not elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain'] in vdw2:
+                            vdw2[elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']] = []
+
+                        vdw2[elem1+'\t'+elem2+'\t'+allatoms_data[elem1]['chain']+allatoms_data[elem2]['chain']].append(E)
    
     with open(PDB.replace(".pdb","_vdw"),'w') as out:
         for contact in vdw1:
             if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
-                out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
+                out.write(contact+'\t'+str(sum(vdw1[contact]))+'\tVDW\n')
 
-    # with open(PDB.replace(".pdb","_vdw"),'w') as out:
-    #     for contact in vdw2:
-    #         if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
-    #             out.write(contact+'\t'+str(sum(vdw1[contact]))+'\n')
+    with open(PDB.replace(".pdb","_vdw2"),'w') as out:
+        for contact in vdw2:
+            if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
+                out.write(contact+'\t'+str(sum(vdw1[contact]))+'\tVDW2\n')
 
 def find_metal_bonds(PDB, metalls, acids_class):
     '''
@@ -913,7 +919,7 @@ def find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids): # old
     #             out.write(re.sub("-","",residue1)+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
     #             tmpdist0 = float(copy.copy(tmpdist1))   
 
-def find_centroid_centroid_bonds(protein_centroids):
+def find_centroid_centroid_bonds(PDB, protein_centroids):
     '''
     @description
         In main define centroids and their coordinates
@@ -932,7 +938,7 @@ def find_centroid_centroid_bonds(protein_centroids):
                 if 0 < dist < prs.centroid_dist:
                     out.write(centroid1+'\t'+centroid2+'\tSCSC\t1\t'+str(dist)+'\n')
        
-def find_centroid_ligand_bonds(protein_centroids, ligand_centroids):
+def find_centroid_ligand_bonds(PDB, protein_centroids, ligand_centroids):
     '''
     @description
         For each centroid key create 'distances' dict with 'dist' and 'ligand' keys
@@ -1010,39 +1016,44 @@ def select_vdw_bonds(vdw_file): #1BTL_vdw file
         bond_energies = {} # dict of bonds and summed total energy
         
         for line in lines:
-            acid1, acid2, chain, energy = line.split('\t')
+            acid1, acid2, chain, energy, _ = line.split('\t')
             res1 = ':'.join(acid1.split(':')[0:3])
             res2 = ':'.join(acid2.split(':')[0:3])
-            bond1 = res1+':'+res2
-            bond2 = res2+':'+res1
-            if bond1 not in s and bond2 not in s:
+            bond1 = res1+'\t'+res2
+            bond2 = res2+'\t'+res1
+            if bond1 not in bond_energies and bond2 not in bond_energies:
                 bond_energies[bond1] = float(energy)
-            elif bond1 in s and bond2 not in s:
+            elif bond1 in bond_energies and bond2 not in bond_energies:
                 bond_energies[bond1] += float(energy)
-            elif bond1 not in s and bond2 in s:
+            elif bond1 not in bond_energies and bond2 in bond_energies:
                 bond_energies[bond2] += float(energy)
         # Define bonds with negative total energy
         neg_vdw_bonds = dict((bond, energy) for bond, energy in bond_energies.items() if energy <= 0)
 
-    with open('VdW_noRepulse', 'w') as out:
+    with open(vdw_file+'_noRepulse', 'w') as out:
         for line in lines:
             if any(bond.split('\t')[0] in line and bond.split('\t')[1] in line for bond in list(neg_vdw_bonds.keys())): # don't write acids with negative energies
                 continue
             else:
-                out.write(line.replace('\n', '\t')+'VDW\n')
+                out.write(line.replace('\n', '\t')+'\n')
 
 
-def main(u):
-    # IF WE INPUT UNIVERSE WITH PDB TOPOLOGY AND FRAMES_DICT OF COORDINATES
-
-    # define mda objects for protein, water, metall, ligand molecules
+def main(PDB, u):
+    '''
+    @description
+        Define main variables: chain and coordinates of protein atoms; water, metall, ligand AtomGroups
+        Write output files with found pipi, pication, hydrogen, VanderWaals, ligand bonds
+    @input
+        PDB - pdb file name, in case of trajectory file it would be pdb file name with number of trajectory frame
+              ex. 1BTL.pdb or 1BTL_3.pdb
+        u - MDAnalysis Universe with topology file and (trajectory frame's coordinates) 
+    '''
     protein = u.select_atoms('protein')
-    hoh = u.select_atoms('resname HOH')
+    hoh = u.select_atoms('resname HOH or resname SOL')
     metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
-    ligands = u.select_atoms('not protein and not resname HOH') - metalls
-    # ligands = u - protein - hoh - metalls
+    ligands = u.select_atoms('not protein and not resname HOH and not resname SOL') - metalls
 
-    prot = protein.atoms # define protein atoms
+    prot = protein.atoms 
     prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
     allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
 
@@ -1062,8 +1073,8 @@ def main(u):
     acids_class = [AminoAcid(res) for res in prot.residues]
 
     # WRITING INTERACTIONS
-    saltBridges = []
-    with open('Bonds', 'w') as net:
+    # saltBridges = []
+    with open(PDB.replace('.pdb', '_bonds'), 'w') as net:
         for i in range(len(acids_class)):
             for j in range(i+1, len(acids_class)):
                 bonds = find_pipi_bonds(acids_class[i], acids_class[j])
@@ -1087,10 +1098,16 @@ def main(u):
     # find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
     find_vdw_bonds(PDB, prot, allatoms, allatoms_data)
     find_VanderWaals_bonds(PDB, prot, allatoms, allatoms_data) # new version
-    # select_vdw_bonds('1BTL_VanderWaals')
-    # select_vdw_bonds('1BTL_vdw')
+    select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals'))
+    select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals2'))
+    select_vdw_bonds(PDB.replace('.pdb', '_vdw'))
+    select_vdw_bonds(PDB.replace('.pdb', '_vdw2'))
 
     find_metal_bonds(PDB, metalls, acids_class) 
+    # find_dna_bonds(u, allatoms_data)
+    pdb = PDB.replace('.pdb', '')
+    cmd = f"cat {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal > {pdb}_net"
+    os.system(cmd)
 
     ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
     ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='group')))
@@ -1106,10 +1123,11 @@ def main(u):
     find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data)
     find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids)
 
-    # find_centroid_bonds(centroid_coords)
-    find_centroid_centroid_bonds(protein_centroids)
-    find_centroid_ligand_bonds(protein_centroids, ligand_centroids)
-
+    # # find_centroid_bonds(centroid_coords)
+    find_centroid_centroid_bonds(PDB, protein_centroids)
+    find_centroid_ligand_bonds(PDB, protein_centroids, ligand_centroids)
+    find_peptide_pairs(protein)
+    prepare_bfactor_file(protein)
 
 if __name__ == '__main__':
     t0 = time.time()
@@ -1118,7 +1136,10 @@ if __name__ == '__main__':
 
     # TEST definition
     PDB = '../Test_data/1BTL.pdb'   #sys.argv[1]
-    PHI = '../Test_data/1BTL.phi'   #sys.argv[2]
+    # PHI = '../Test_data/1BTL.phi'   #sys.argv[2]
+
+    os.system(f"stride {PDB} > {PDB.replace('pdb', 'phi')}") # stride must be in usr/local/bin
+    PHI = PDB.replace('pdb', 'phi')
 
     if os.path.exists(PDB) and os.path.exists(PHI):
         phifile = open(PHI, 'r').readlines()
@@ -1133,4 +1154,25 @@ if __name__ == '__main__':
     prepare_rsa_file(PDB, phi_data)
 
     u = mda.Universe(PDB)
-    main(u)
+    main(PDB, u)
+
+
+
+    ### OUTPUT FILES
+    # 1BTL_secondaryStructure2      [HIS:26:A    CoilA1  0]
+    # 1BTL.rsa                      [HIS:26:A   0.474]
+    # 1BTL_Bonds with pipi, picat, saltbridge, disulfide bonds  [LYS:32:A:NZ    ASP:35:A:OD2    SCSC    20  SB ]
+    # 1BTL_hb                       [GLU:28:A:H HIS:26:A:ND1    MCSC    15.524611902380917  HB  ]
+    # 1BTL_vdw, 1BTL_vdw2 - prev vdw bonds      [HIS:26:A:N GLU:58:A:OE1    MCSC    2.561345646191593   VDW]
+    # 1BTL_VanderWaals, 1BTL_VanderWaals2 - current vdw bonds
+    # VDW + *_noRepulse files - deleted negative bonds
+    # 1BTL_metal                    [ASP:52:A:OD1    SER:91:A:OG  SCSC    NA:2402:A:NA 125.47308026698812]
+    # 1BTL_ligand_new, 1BTL_ligand_old  [ALA:0:A:CB   CLR:2403:A   30.84465258857814]
+    # 1BTL_centroidNetSC            [HIS:26:A   PRO:27:A    SCSC    1   4.734220978924919]
+    # 1BTL_centroidNetLigand        [ALA:0:A  CLR:2403:A   30.928275454825783]
+    ### MISS DNA FILE
+    ### 1BTL.phi processed by stiride 1BTL.pdb
+
+    ### OPTIONAL FILES
+    # Bfactor               [HIS:26:A  14.479999542236328]
+    # polypeptidePairs      [HIS:26:A    PRO:27:A    MCMC    10  PP]
