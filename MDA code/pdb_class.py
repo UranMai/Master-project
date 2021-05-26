@@ -214,10 +214,11 @@ class AminoAcid:
         '''
         if self.resname in prs.cation_acids:
             cations = self.atoms.select_atoms('name NZ CZ')
-            cation_names = self.res+':'+cations.names[0]
-            # cation_names = cations.resnames[0]+':'+str(cations.resids[0])+':'+cations.segids[0]+':'+cations.names[0]
-            cation_coord = cations.positions[0]
-            return cation_names, cation_coord
+            if cations.names.size != 0: # some residues cannot contain NZ CZ atoms, returns zero array([])
+                cation_names = self.res+':'+cations.names[0]
+                # cation_names = cations.resnames[0]+':'+str(cations.resids[0])+':'+cations.segids[0]+':'+cations.names[0]
+                cation_coord = cations.positions[0]
+                return cation_names, cation_coord
 
     def Disulf(self):
         '''
@@ -713,7 +714,7 @@ def find_vdw_bonds(PDB, protein, allatoms, allatoms_data):
             if not (sum(vdw1[contact])<0 and abs(int(contact.split('\t')[0].split(':')[1]) - int(contact.split('\t')[1].split(':')[1]))==1):
                 out.write(contact+'\t'+str(sum(vdw1[contact]))+'\tVDW2\n')
 
-def find_metal_bonds(PDB, metalls, acids_class):
+def find_metal_bonds(metalls, acids_class, allatoms_data, PDB):
     '''
     @description
         For each metal find atoms from acids_class that are bonded to that metal
@@ -763,7 +764,8 @@ def find_metal_bonds(PDB, metalls, acids_class):
 
                 angle = np.degrees(MDAmath.angle(coords1, coords2))
                 if prs.RIGHT_ANGLE < angle < prs.STRAIGHT_ANGLE:
-                    metalBonds.append(atom_1+'\t'+atom_2+'\t'+chain[atom_1]+chain[atom_2]+'\t3\tMETAL\n')
+                    # metalBonds.append(atom_1+'\t'+atom_2+'\t'+chain[atom_1]+chain[atom_2]+'\t3\tMETAL\n')
+                    metalBonds.append(atom_1+'\t'+atom_2+'\t'+allatoms_data[atom_1]['chain']+allatoms_data[atom_2]['chain']+'\t3\tMETAL\n')
                     # metalBonds.append(''.join(atom_1.split(':')[:3])+'\t'+''.join(atom_2.split(':')[:3])+'\t'+
                     #               chain[atom_1]+chain[atom_2]+'\t3\tMETAL\t'+''.join(atom_1.split(':')[3])+'\t'
                     #               +''.join(atom_2.split(':')[3])+'\n')
@@ -774,7 +776,7 @@ def find_metal_bonds(PDB, metalls, acids_class):
             out.write(bond)                
             
 
-def find_dna_bonds(u, allatoms_data):
+def find_dna_bonds(u, allatoms_data, PDB):
     '''
     @description
         Select DNA resnames (DA, DG, DC, DT).
@@ -821,12 +823,12 @@ def find_dna_bonds(u, allatoms_data):
             if bound:
                 DNAbindingPairs.append([dna_atom, atom1])
 
-    with open('DNAbonds', 'w') as out:
+    with open(PDB.replace('.pdb', '_DNAbonds'), 'w') as out:
         for dna_atom, prot_atom in DNAbindingPairs:
             out.write(dna_atom+'\t'+prot_atom+'\tMC'+allatoms_data[prot_atom]['chain']+'\t10\tDNA\tNT\n')
 
 
-def find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data):
+def find_ligand_atom_bonds_new(ligand_centroids, allatoms_data, PDB):
     '''
     @description
         Consider sidechained atom, for it create 'distances' dict with 'dist' and 'ligand' keys
@@ -844,7 +846,7 @@ def find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data):
         ALA:0:A:CB | CLR:2403:A | 30.8
     '''
     ligand_distances = {}
-    with open('Ligands_new', 'w') as out:
+    with open(PDB.replace('.pdb', '_ligands_new'), 'w') as out:
         for atom, atom_data in allatoms_data.items():
             if atom_data['chain'] == 'SC':
                 ligand_distances[atom] = {}
@@ -852,9 +854,9 @@ def find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data):
                 ligand_distances[atom]['ligand'] = '' #tmp ligand name
                 for ligand, ligand_coords in ligand_centroids.items():
                     dist = MDdist3D(atom_data['coords'], ligand_coords)
-                    if distance > ligand_distances[atom]['dist']:
+                    if dist > ligand_distances[atom]['dist']:
                         continue
-                    ligand_distances[atom]['dist'] = distance
+                    ligand_distances[atom]['dist'] = dist
                     ligand_distances[atom]['ligand'] = ligand
                     out.write(atom+'\t'+ligand+'\t'+str(ligand_distances[atom]['dist'])+'\n')
 
@@ -873,13 +875,13 @@ def find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data):
         #             out.write(atom+'\t'+ligand+'\t'+str(ligand_distances[atom]['dist'])+'\n')
     
 
-def find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids): # old version 
+def find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids, PDB): # old version 
     '''
     @description
         iterate through protein atoms and ligands, finding distance b/w them and write to file
         replacing distance to less value try to find the less distance b/w atom and ligand
     '''
-    with open('Ligands_old','w') as out:
+    with open(PDB.replace('.pdb', '_ligands_old'),'w') as out:
         for atom in allatoms:
             # if chain[atom] == 'SC':
             if allatoms_data[atom]['chain'] == 'SC':
@@ -919,7 +921,7 @@ def find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids): # old
     #             out.write(re.sub("-","",residue1)+"\t"+ligand+"\t"+str(tmpdist1)+"\n")
     #             tmpdist0 = float(copy.copy(tmpdist1))   
 
-def find_centroid_centroid_bonds(PDB, protein_centroids):
+def find_centroid_centroid_bonds(protein_centroids, PDB):
     '''
     @description
         In main define centroids and their coordinates
@@ -938,7 +940,7 @@ def find_centroid_centroid_bonds(PDB, protein_centroids):
                 if 0 < dist < prs.centroid_dist:
                     out.write(centroid1+'\t'+centroid2+'\tSCSC\t1\t'+str(dist)+'\n')
        
-def find_centroid_ligand_bonds(PDB, protein_centroids, ligand_centroids):
+def find_centroid_ligand_bonds(protein_centroids, ligand_centroids, PDB):
     '''
     @description
         For each centroid key create 'distances' dict with 'dist' and 'ligand' keys
@@ -961,10 +963,10 @@ def find_centroid_ligand_bonds(PDB, protein_centroids, ligand_centroids):
                     continue
                 ligand_distances[centroid]['dist'] = dist
                 ligand_distances[centroid]['ligand'] = ligand
-                out.write(centroid+'\t'+ligand+'\t'+str(distances[centroid]['dist'])+'\n')
+                out.write(centroid+'\t'+ligand+'\t'+str(ligand_distances[centroid]['dist'])+'\n')
                 # out.write(''.join(centroid.split(':'))+'\t'+''.join((distances[centroid]['ligand']).split(':'))+'\t'+str(distances[centroid]['dist'])+'\n')
 
-def find_peptide_pairs(protein):
+def find_peptide_pairs(protein, PDB):
 	'''
  	@description
 		Find peptide pairs b/w two successive residues in aminoacid sequence
@@ -974,7 +976,7 @@ def find_peptide_pairs(protein):
 	    PDB file, ex. 4eiy.pdb
 	''' 
 	residues = protein.residues
-	with open('polypeptidePairs', 'w') as out:
+	with open(PDB.replace('.pdb', '_polypeptidePairs'), 'w') as out:
 	    for i in range(protein.n_residues - 1):
 	    	if residues[i].resid == residues[i+1].resid - 1:
 	    		out.write(residues[i].resname+':'+str(residues[i].resid)+':'+residues[i].segid+'\t'+
@@ -1097,20 +1099,20 @@ def main(PDB, u):
 
     # find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
     find_vdw_bonds(PDB, prot, allatoms, allatoms_data)
-    find_VanderWaals_bonds(PDB, prot, allatoms, allatoms_data) # new version
-    select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals'))
-    select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals2'))
+    # find_VanderWaals_bonds(PDB, prot, allatoms, allatoms_data) # new version
+    # select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals'))
+    # select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals2'))
     select_vdw_bonds(PDB.replace('.pdb', '_vdw'))
     select_vdw_bonds(PDB.replace('.pdb', '_vdw2'))
 
-    find_metal_bonds(PDB, metalls, acids_class) 
+    find_metal_bonds(metalls, acids_class, allatoms_data, PDB) 
     # find_dna_bonds(u, allatoms_data)
     pdb = PDB.replace('.pdb', '')
     cmd = f"cat {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal > {pdb}_net"
     os.system(cmd)
 
     ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
-    ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='group')))
+    ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='residues')))
 
     # CENTROIDS
     # Calc weighted center of residues, where centroid_data.masses are weights
@@ -1120,14 +1122,20 @@ def main(PDB, u):
     centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
     protein_centroids = dict(zip(centroid_names, center_coords))
     
-    find_ligand_atom_bonds_new(PDB, ligand_centroids, allatoms_data)
-    find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids)
+    find_ligand_atom_bonds_new(ligand_centroids, allatoms_data, PDB)
+    find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids, PDB)
 
     # # find_centroid_bonds(centroid_coords)
-    find_centroid_centroid_bonds(PDB, protein_centroids)
-    find_centroid_ligand_bonds(PDB, protein_centroids, ligand_centroids)
-    find_peptide_pairs(protein)
-    prepare_bfactor_file(protein)
+    find_centroid_centroid_bonds(protein_centroids, PDB)
+    find_centroid_ligand_bonds(protein_centroids, ligand_centroids, PDB)
+    # find_peptide_pairs(protein)
+    # prepare_bfactor_file(protein)
+    
+    # Delete Files
+    cmd = f"rm -rf {pdb}_bonds {pdb}_hb {pdb}_vdw {pdb}_vdw2 {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal"
+    os.system(cmd)
+
+
 
 if __name__ == '__main__':
     t0 = time.time()
@@ -1135,7 +1143,8 @@ if __name__ == '__main__':
     # PHI = PDB.replace('.pdb', '.phi')
 
     # TEST definition
-    PDB = '../Test_data/1BTL.pdb'   #sys.argv[1]
+    PDB = sys.argv[1]
+    # PDB = '../Test_data/1BTL.pdb'   #sys.argv[1]
     # PHI = '../Test_data/1BTL.phi'   #sys.argv[2]
 
     os.system(f"stride {PDB} > {PDB.replace('pdb', 'phi')}") # stride must be in usr/local/bin
