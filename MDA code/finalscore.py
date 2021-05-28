@@ -5,7 +5,9 @@ import time
 # pdb_file = sys.argv[1]
 t0 = time.time()
 pdb = sys.argv[1]
+
 pdb_file = re.sub(".pdb","",pdb)
+print(pdb_file)
 
 # Read Energetics and Centroid files
 data1 = pd.read_csv(pdb_file+'_scoresEnergetics', sep='\t', index_col='AA')
@@ -23,6 +25,7 @@ data2Z.columns = data2Z.columns + 'CENTROIDSC'
 data1Multimer = pd.read_csv(pdb_file + '_scoresEnergetics', sep='\t', index_col='AA')
 data1MultimerZ = pd.read_csv(pdb_file + '_scoresEnergeticsZ', sep='\t', index_col='AA')
 data1MultimerZ = data1MultimerZ.round(6)
+data1MultimerZ = data1MultimerZ.fillna(value=0)
 
 data2Multimer = pd.read_csv(pdb_file + '_scoresCentroid', sep='\t', index_col='AA')
 data2MultimerZ =  pd.read_csv(pdb_file + '_scoresCentroidZ', sep='\t', index_col='AA')
@@ -31,6 +34,8 @@ data2MultimerZ = data2MultimerZ.round(6)
 # Rename columns
 data1MultimerZ.columns = data1MultimerZ.columns + 'MULTIMER'
 data2MultimerZ.columns = data2MultimerZ.columns + 'MULTIMERCENTROIDSC'
+data2MultimerZ = data2MultimerZ.fillna(value=0)
+
 
 data1 = pd.concat([data2['RSA'], data1],axis=1)
 dataZ = pd.concat([data1Z, data2Z], axis=1)
@@ -38,29 +43,31 @@ dataZ = pd.concat([data1Z, data2Z], axis=1)
 acidsMonomer = []
 for i in range(len(dataZ)):
     node = dataZ.index[i]
-    acidsMonomer.append(node[:-1])
+    acidsMonomer.append(node)
 
 acidsMultimer = []
 for i in range(len(data1MultimerZ)):
     node = data1MultimerZ.index[i]
-    acidsMultimer.append(node[:-1])
+    acidsMultimer.append(node)
 
 allAcids = list(set(acidsMonomer+acidsMultimer))
+
 
 # Calculate Average value of SecondOrderIntermodularDegree
 SecondOrderIntermodularDegree_ALL = (data1MultimerZ["SecondOrderIntermodularDegreeSTRIDE_sidechainMULTIMER"]+
                                      data1MultimerZ["SecondOrderIntermodularDegreeSTRIDEMULTIMER"]+
                                      data2MultimerZ['SecondOrderIntermodularDegreeSTRIDEMULTIMERCENTROIDSC']+
                                      data2MultimerZ["SecondOrderIntermodularDegreeWALKTRAPMULTIMERCENTROIDSC"])/4
+# print(SecondOrderIntermodularDegree_ALL)
 
 arr = []
 df = SecondOrderIntermodularDegree_ALL
 for i, j in zip(df.index, df.values):
-    acid = i[:-1] 
+    acid = i # Before i[;-1] it returned HIS:26:, now it returns HIS:26:A
     arr.append([acid, j])
 
 new_df = pd.DataFrame(arr)
-
+# print(new_df)
 SecondOrderIntermodularDegree_AVERAGE = {}
 
 for acid in allAcids:
@@ -86,7 +93,7 @@ NodeEdgeBetweennessSTRIDE_sidechain_ALL = NodeEdgeBetweennessSTRIDE_AVERAGE_MONO
 arr = []
 df = NodeEdgeBetweennessSTRIDE_sidechain_ALL
 for i, j in zip(df.index, df.values):
-    acid = i[:-1] 
+    acid = i # Before i[;-1] it returned HIS:26:, now it returns HIS:26:A
     arr.append([acid, j])
 new_df = pd.DataFrame(arr)
 
@@ -96,6 +103,8 @@ for acid in acidsMonomer+acidsMultimer:
     value = new_df[new_df[0]==acid][1].max()
     NodeEdgeBetweennessSTRIDE_sidechain_MAX[acid] = value
 
+# print(NodeEdgeBetweennessSTRIDE_sidechain_MAX)
+
 #  CALCULATIONS OF LIGAND VALUES (MIN VALUE)
 LigandMULTIMERCENTROIDSC_ALL = data2MultimerZ["LigandMULTIMERCENTROIDSC"]
 LigandMULTIMERCENTROIDSC_ALL.sum()
@@ -103,7 +112,7 @@ LigandMULTIMERCENTROIDSC_ALL.sum()
 arr = []
 df = LigandMULTIMERCENTROIDSC_ALL
 for i, j in zip(df.index, df.values):
-    acid = i[:-1] 
+    acid = i # Before i[;-1] it returned HIS:26:, now it returns HIS:26:A
     arr.append([acid, j])
 new_df = pd.DataFrame(arr)
 
@@ -112,6 +121,8 @@ LigandMULTIMERCENTROIDSC_MIN = {}
 for acid in acidsMultimer:
     value = new_df[new_df[0]==acid][1].min()
     LigandMULTIMERCENTROIDSC_MIN[acid] = value
+
+# print(LigandMULTIMERCENTROIDSC_MIN)
 
 missing = [acid for acid in allAcids if acid not in acidsMultimer]
 missing
@@ -128,7 +139,7 @@ RSA_MIN = {}
 arr = []
 df = RSA_ALL
 for i, j in zip(df.index, df.values):
-    acid = i[:-1] 
+    acid = i 
     arr.append([acid, j])
 new_df = pd.DataFrame(arr)
 
@@ -143,7 +154,7 @@ for node in allAcids:
     out[node] = y
 
 
-pd.DataFrame(out.items()).sort_values(by=0).to_csv('FinalSum', sep='\t', index=False, header=False)
+pd.DataFrame(out.items()).sort_values(by=0).to_csv(pdb_file+'_FinalSum', sep='\t', index=False, header=False)
 print('Create FinalSum', time.time()-t0)
 
 # Check results with R.sum(y) (use round())
