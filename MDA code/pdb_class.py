@@ -53,6 +53,7 @@ def prepare_secondary_structure_file(PDB, phi_data):
 
         line = phi_data[i]   
         res, resid, segid = line[5:8].strip(), line[11:15].strip(), line[9]
+        # segid = 'seg_0_Protein_chain_A'
         phi_angle, structure = float(line[42:50].strip()), line[33:42].strip()
         phi[res+resid+segid] = phi_angle
         secStruct = structure
@@ -136,8 +137,10 @@ def prepare_rsa_file(PDB, phi_data):
     with open(PDB.replace('.pdb','.rsa'), 'w') as rsafile:
         for line in phi_data:
             if line [5:8] in prs.area.keys():
+                # segid = 'seg_0_Protein_chain_A'
+                segid = line[9]
                 # rsafile.write(line[5:8]+line[11:15].strip()+line[9]+"\t"+str(float(line[64:69].strip())/prs.area[line[5:8]])+"\n") 
-                rsafile.write(line[5:8]+':'+line[11:15].strip()+':'+line[9]+'\t'+str(float(line[64:69].strip())/prs.area[line[5:8]])+'\n') 
+                rsafile.write(line[5:8]+':'+line[11:15].strip()+':'+segid+'\t'+str(float(line[64:69].strip())/prs.area[line[5:8]])+'\n') 
 
 class AminoAcid:
     '''
@@ -846,7 +849,7 @@ def find_ligand_atom_bonds_new(ligand_centroids, allatoms_data, PDB):
         ALA:0:A:CB | CLR:2403:A | 30.8
     '''
     ligand_distances = {}
-    with open(PDB.replace('.pdb', '_ligands_new'), 'w') as out:
+    with open(PDB.replace('.pdb', '_ligands'), 'w') as out:
         for atom, atom_data in allatoms_data.items():
             if atom_data['chain'] == 'SC':
                 ligand_distances[atom] = {}
@@ -1123,7 +1126,7 @@ def main(PDB, u):
     protein_centroids = dict(zip(centroid_names, center_coords))
     
     find_ligand_atom_bonds_new(ligand_centroids, allatoms_data, PDB)
-    find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids, PDB)
+    # find_ligand_atom_bonds_old(allatoms, allatoms_data, ligand_centroids, PDB)
 
     # # find_centroid_bonds(centroid_coords)
     find_centroid_centroid_bonds(protein_centroids, PDB)
