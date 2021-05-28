@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 # metalls
-metals = ["NA","MG","K","CA","MN","FE","CO","CU","ZN", "S"]
+metals = ["NA","MG","K","CA","MN","FE","CO","CU","ZN", "S", "CL", 'NA+']
 metal_dist_cutoff = 3.5
 
 # constant values of angles and distances
