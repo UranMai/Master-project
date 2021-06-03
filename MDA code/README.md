@@ -24,3 +24,10 @@ where ```1btl_clean.pdb``` - pdb file after **PDBFixer**, ```run_1.tpr``` - topo
 
 To run energetics, centroid scripts take 2 inputs: PDB file - ```../Test_data/1btl_clean.pdb```; and ```../Test_data/1btl_500.pdb```
 finalscore.py takes input: ```../Test_data/1btl_500.pdb```
+
+
+### Execution example
+```sh
+python energetics_np.py ../Test_data/frame_1000.pdb
+python centroid_np.py ../Test_data/frame_1000.pdb
+```
