@@ -206,7 +206,7 @@ def node_intermodular_degr_2order(node_intmod_degr, node_intmod_degr_sc, node_mo
 
 #     return firstOrderDegree, firstOrderDegree_sidechain, secondOrderDegree, secondOrderDegree_sidechain
 
-def first_second_order_degree(net, net_directed, nodes): # same output for energetics and centroid versions
+def first_second_order_degree(net, net_directed): # same output for energetics and centroid versions
     '''
     @input
         influencenet - 
@@ -268,27 +268,68 @@ def Scaling(df):
     return df
 
 # used for centroid calculations
+# uniqueAtoms = {
+#                 'ALA': ['CB,HB1,HB2,HB3'],
+#                 'ARG': ['CD,HD2,HD3,NE,HE,CZ,NH1,NH2,HH11,HH12,HH21,HH22,NH1/2'],
+#                 'ASN': ['OD1,ND2,HD21,HD22', 'CG'],
+#                 'ASP': ['OD1,OD2,HD2,OD1/2', 'CG'],
+#                 'CYS': ['SG,HG'],
+#                 'GLN': ['OE1,NE2,HE21,HE22,CD'],
+#                 'GLU': ['OE1,OE2,HE2,OE1/2', 'CD'],
+#                 'GLY': ['CA,HA2,HA3,O,N,C'],
+#                 'HIS': ['ND1,CE1,NE2,HD1,HE1,HE2,CD2,HD2'],
+#                 'ILE': ['CD1,HD11,HD12,HD13,CG2,HG21,HG22,HG23'],
+#                 'LEU': ['CD1,CD2,HD11,HD12,HD13,HD21,HD22,HD23'],
+#                 'LYS': ['CE,HE2,HE3,NZ,HZ1,HZ2,HZ3'],
+#                 'MET': ['CE,HE1,HE2,HE3,SD'],
+#                 'PHE': ['CZ,HZ,CE1,CE2,HE1,CE2,HE2'],
+#                 'PRO': ['CG,CD,CB,HG2,HG3,HD2,HD3,HB2,HB3'],
+#                 'SER': ['OG,HG,CB,HB2,HB3'],
+#                 'THR': ['OG1,HG1,CG2,HG21,HG22,HG23'],
+#                 'TRP': ['CD2,NE1,HE1,CE2,CE3,HE3,CZ2,HZ2,CZ3,HZ3,CH2,HH2'],
+#                 'TYR': ['OH,HH,CE1,HE1,CZ,CE2,HE2'],
+#                 'VAL': ['CG1,CG2,HG11,HG12,HG13,HG21,HG22,HG23']
+#                 }
 uniqueAtoms = {
-                'ALA': ['CB,HB1,HB2,HB3'],
-                'ARG': ['CD,HD2,HD3,NE,HE,CZ,NH1,NH2,HH11,HH12,HH21,HH22,NH1/2'],
-                'ASN': ['OD1,ND2,HD21,HD22', 'CG'],
-                'ASP': ['OD1,OD2,HD2,OD1/2', 'CG'],
-                'CYS': ['SG,HG'],
-                'GLN': ['OE1,NE2,HE21,HE22,CD'],
-                'GLU': ['OE1,OE2,HE2,OE1/2', 'CD'],
-                'GLY': ['CA,HA2,HA3,O,N,C'],
-                'HIS': ['ND1,CE1,NE2,HD1,HE1,HE2,CD2,HD2'],
-                'ILE': ['CD1,HD11,HD12,HD13,CG2,HG21,HG22,HG23'],
-                'LEU': ['CD1,CD2,HD11,HD12,HD13,HD21,HD22,HD23'],
-                'LYS': ['CE,HE2,HE3,NZ,HZ1,HZ2,HZ3'],
-                'MET': ['CE,HE1,HE2,HE3,SD'],
-                'PHE': ['CZ,HZ,CE1,CE2,HE1,CE2,HE2'],
-                'PRO': ['CG,CD,CB,HG2,HG3,HD2,HD3,HB2,HB3'],
-                'SER': ['OG,HG,CB,HB2,HB3'],
-                'THR': ['OG1,HG1,CG2,HG21,HG22,HG23'],
-                'TRP': ['CD2,NE1,HE1,CE2,CE3,HE3,CZ2,HZ2,CZ3,HZ3,CH2,HH2'],
-                'TYR': ['OH,HH,CE1,HE1,CZ,CE2,HE2'],
-                'VAL': ['CG1,CG2,HG11,HG12,HG13,HG21,HG22,HG23']
-                }
+    'ALA': ['CB', 'HB1', 'HB2', 'HB3'],
+    'ARG': ['CD', 'HD2', 'HD3', 'NE', 'HE', 'CZ', 'NH1', 'NH2', 'HH11', 'HH12', 'HH21', 'HH22', 'NH1/2'],
+    'ASN': ['OD1', 'ND2', 'HD21', 'HD22', 'CG'],
+    'ASP': ['OD1', 'OD2', 'HD2', 'OD1/2', 'CG'],
+    'CYS': ['SG', 'HG'],
+    'GLN': ['OE1', 'NE2', 'HE21', 'HE22', 'CD'],
+    'GLU': ['OE1', 'OE2', 'HE2', 'OE1/2', 'CD'],
+    'GLY': ['CA', 'HA2', 'HA3', 'O', 'N', 'C'],
+    'HIS': ['ND1', 'CE1', 'NE2', 'HD1', 'HE1', 'HE2', 'CD2', 'HD2'],
+    'ILE': ['CD1', 'HD11', 'HD12', 'HD13', 'CG2', 'HG21', 'HG22', 'HG23'],
+    'LEU': ['CD1', 'CD2', 'HD11', 'HD12', 'HD13', 'HD21', 'HD22', 'HD23'],
+    'LYS': ['CE', 'HE2', 'HE3', 'NZ', 'HZ1', 'HZ2', 'HZ3'],
+    'MET': ['CE', 'HE1', 'HE2', 'HE3', 'SD'],
+    'PHE': ['CZ', 'HZ', 'CE1', 'CE2', 'HE1', 'CE2', 'HE2'],
+    'PRO': ['CG', 'CD', 'CB', 'HG2', 'HG3', 'HD2', 'HD3', 'HB2', 'HB3'],
+    'SER': ['OG', 'HG', 'CB', 'HB2', 'HB3'],
+    'THR': ['OG1', 'HG1', 'CG2', 'HG21', 'HG22', 'HG23'],
+    'TRP': ['CD2', 'NE1', 'HE1', 'CE2', 'CE3', 'HE3', 'CZ2', 'HZ2', 'CZ3', 'HZ3', 'CH2', 'HH2'],
+    'TYR': ['OH', 'HH', 'CE1', 'HE1', 'CZ', 'CE2', 'HE2'],
+    'VAL': ['CG1', 'CG2', 'HG11', 'HG12', 'HG13', 'HG21', 'HG22', 'HG23']}
 # used for energetics calculations
-# terminalAtoms 
+terminalAtoms = {
+    'ALA': ['CB', 'HB1', 'HB2', 'HB3'],
+    'ARG': ['NE', 'HE', 'CZ', 'NH1', 'NH2', 'HH11', 'HH12', 'HH21', 'HH22'],
+    'ASN': ['OD', 'ND2', 'HD21', 'HD22'],
+    'ASP': ['OD1', 'OD2', 'HD2'],
+    'CYS': ['SG', 'HG'],
+    'GLN': ['OE1', 'NE2', 'HE21', 'HE22'],
+    'GLU': ['OE1', 'OE2', 'HE2'],
+    'GLY': ['CA', 'HA2', 'HA3', 'O'],
+    'HIS': ['ND1', 'CE1', 'NE2', 'HD1', 'HE1', 'HE2'],
+    'ILE': ['CD1', 'HD1'],
+    'LEU': ['CD1', 'CD2', 'HD1', 'HD2'],
+    'LYS': ['NZ', 'HD1', 'HD2', 'HD3'],
+    'MET': ['CE', 'HE1', 'HE2', 'HE3'],
+    'PHE': ['CZ', 'HZ1', 'HZ2', 'HZ3'],
+    'PRO': ['CG', 'CD', 'HG2', 'HG3', 'HD2', 'HD3'],
+    'SER': ['OG', 'HG'],
+    'THR': ['OG1', 'HG1', 'CG2', 'HG1', 'HG2', 'HG3'],
+    'TRP': ['CE3', 'CZ2', 'CZ3', 'CH2', 'HE3', 'HZ2', 'HZ3', 'HH2'],
+    'TYR': ['OH', 'HH'],
+    'VAL': ['CG1', 'CG2', 'HG1', 'HG2']}
