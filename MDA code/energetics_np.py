@@ -1,3 +1,7 @@
+# before create frame_1000.pdb and its files
+# run >> python energetics_np.py ../Test_data/frame_1000.pdb
+# it reads frame_1000_net, frame_1000_secondaryStructure2, frame_1000.rsa
+
 import numpy as np
 import pandas as pd 
 import re, os
@@ -10,16 +14,23 @@ from score_functions import *
 def process_data(data_net): 
     '''
     @description
-        Consider reverse interactions of edges and merge direct and reverse data (bi-directed interactions)
-        For merged data add info about whether acids atoms are terminal(1) or not terminal(0)
-        In merged data for groups of 2 common acids, count total E (sumWeight), count chains and number of bonds b/w 2 acids
+        Create data of reverse interactions, Merge directed and reversed data (bi-directed interactions)
+        Example: 
+                data_net:       ['GLU:22:A', 'ARG:231:A', 'SCSC', '10', 'SB', 'OE1', 'NH1']
+                reverse_data:   ['ARG:231:A', 'GLU:22:A', 'SCSC', '10', 'SB', 'NH1', 'OE1']
+
+        For merged data add info about whether acids' atoms are terminal(1) or not terminal(0)
+        In merged data for groups of 2 common acids, count total energy (edgeSUM), count chains and number of bonds b/w 2 acids
+        Consider data with poistive energies
     @input
         data_net - np.array data of interactions ('net' file)
-        data_net must contain info in format [acid1, acid2, Chain types, Energy_value, Bond_type, atom1, atom2]
+        data_net must contain info in format 
+                [acid1, acid2, Chain types, Energy_value, Bond_type, atom1, atom2]
+                ['GLU:22:A', 'ARG:231:A', 'SCSC', '10', 'SB', 'OE1', 'NH1']
     @output
         dict of np.arrays, where
-            'out' - data of unique processed acids with >0 WeightSum
-            'influence_all' - data with at least one terminal atom
+            'out' - grouped data of unique processed acids with counted options
+            'influence_all' - merged data with at least one terminal atom
     '''
     # Edges should be listed bi-directionally
     reverse_data = data_net.copy()
@@ -32,10 +43,10 @@ def process_data(data_net):
     elif data_net.shape[1] == 9:
         reverse_data[:,[0, 1, 5, 6, 7, 8]] = reverse_data[:, [1, 0, 6, 5, 8, 7]] 
     
-    data = np.concatenate((data_net, reverse_data), axis=0, )
-    data = np.unique(data.tolist(), axis=0)
+    data = np.vstack((data_net, reverse_data))
+    data = np.unique(data, axis=0)
 
-    # Check if atom is terminal or not
+    # Check if acids' atoms are terminal or not
     if data.shape[1] == 7:
         codes1 = []
         codes2 = []
@@ -49,32 +60,36 @@ def process_data(data_net):
     else:
         out_details = data.copy()
     
-    # Consider interactions with terminal atom in one of 2 acids
+    # Take bonds with positive energy and at least with one terminal atom (1)
     influence_all = out_details[(out_details[:,3].astype(float)>0) & np.bitwise_or(out_details[:,7]=='1', out_details[:,8]=='1')]
 
     # Group data by common 2 acids, calculate WeightSUM, percentMC
     out = []
-    processed = []
+    processed_acids = []
     for res1, res2 in data[:, [0,1]]:
-        if [res1, res2] not in processed:
-            processed.append([res1, res2])
+        if [res1, res2] not in processed_acids:
+            processed_acids.append([res1, res2])
             grouped_data = data[(data[:, 0]==res1) & (data[:, 1]==res2)]
             edgeSum = sum(grouped_data[:, 3].astype('float')) # weight_sum
-            chain = np.unique(grouped_data[:, 2], return_counts=True)
-            chain = dict(zip(chain[0], chain[1]))
-            # can we just use value_counts w/o calculating all numbers of sidechain
-            MCMCcount=0; MCSCcount=0; SCSCcount=0; SCMCcount=0
-            for tp in grouped_data[:, 2]:
-                if tp=='MCMC' or tp=='MCSC':
-                    MCMCcount+=1
-                    MCSCcount+=1
-                elif tp=='SCMC':
-                    SCMCcount+=1
-                elif tp=='SCSC':
-                    SCSCcount+=1
-            percentMC = (MCMCcount+MCSCcount) / (MCMCcount+MCSCcount+SCMCcount+SCSCcount)
-            values = [grouped_data[0,0], grouped_data[0,1], 'mixed', edgeSum, percentMC, sum(grouped_data[:, 7].astype(int)),
-                        sum(grouped_data[:, 8].astype(int)), len(data[data[:, 0] == grouped_data[0, 0]])]
+            # chain = np.unique(grouped_data[:, 2], return_counts=True)
+            # chain = dict(zip(chain[0], chain[1]))
+            # # can we just use value_counts w/o calculating all numbers of sidechain
+            # MCMCcount=0; MCSCcount=0; SCSCcount=0; SCMCcount=0
+            # for tp in grouped_data[:, 2]:
+            #     if tp=='MCMC' or tp=='MCSC':
+            #         MCMCcount+=1
+            #         MCSCcount+=1
+            #     elif tp=='SCMC':
+            #         SCMCcount+=1
+            #     elif tp=='SCSC':
+            #         SCSCcount+=1
+            # percentMC = (MCMCcount+MCSCcount) / (MCMCcount+MCSCcount+SCMCcount+SCSCcount)
+            # Header: Acid1, Acid2, mixed, Sum of Edges, percent MC, num1 of terminal atoms, num2 of terminal atoms, degree of Acid1
+            values = [grouped_data[0,0], grouped_data[0,1], 'mixed', edgeSum, 
+                      # percentMC,
+                      # sum(grouped_data[:, 7].astype(int)), sum(grouped_data[:, 8].astype(int)), 
+                      # len(data[data[:, 0] == grouped_data[0, 0]])
+                      ] 
             out.append(values)
     out = np.array(out)
     out = out[out[:,3].astype(float)>0] # Consider only interactions with positive weightSum
@@ -87,14 +102,18 @@ def process_data(data_net):
 def removeRedundancy(data):
     '''
     @description
-        For each interaction in data, check if acids names are sorted or not
-        If not then replace acids (acid1,acid2 --> acid2, acid1), also MCSC --> SCMC, num terminal atoms
-        Select unique pairs, only directed interactions
-        Select subdata grouped by 2 acids and calculate sumWeight*0.5 of all interactions (here we consider bonds twice, directed bonds)
+        In input data first 2 columns are interacted amino acids, so select unique pairs of these acids. Traverse pairs
+        Select subdata grouped by 2 acids and calculate sumWeight*0.5 of all interactions
+        Example: 
+                ['ALA:100:A', 'ALA:99:A', 'mixed', '7.964859491314238', '0.0', '2', '0', '22']
+                ['ALA:99:A', 'ALA:100:A', 'mixed', '7.964859491314238', '1.0', '0', '2', '40']
+        pairs returned are ['ALA:100:A', 'ALA:99:A']
     @input
-        data - np.array of data of interactions 
+        data - np.array, data of interactions 
     @output
         np.array in format [acid1, acid2, SumWeight]
+        Example:
+                ['ALA:100:A', 'ALA:99:A', '3.982429745657119']
     '''
     pairs = np.sort(data[:,:2], axis=1)
     pairs = np.unique(pairs, axis=0)
@@ -102,21 +121,20 @@ def removeRedundancy(data):
     for i in range(len(pairs)):
         subdata = data[(data[:,0]==pairs[i,0]) & (data[:,1]==pairs[i,1])]
         out.append([pairs[i,0], pairs[i,1], 0.5*sum(subdata[:,3].astype(float))])
+        # Does this 0.5 matter?
 
     return np.array(out)
 
 def make_undirected_interactions(data):
     '''
     @description
-        Consider bidirected interactions: from input data sort acids by name and select unique pairs, (ALA0A GLY-1A)
-        Select subdata grouped by 2 acids and calculate sumWeight
+        Consider bidirected interactions: from input data sort acids by name and select unique pairs,
+        Select subdata grouped by unique pair of2 acids and calculate sumWeight
     @input
-        data - np.array of data of interactions
+        data - np.array, data of interactions
     @output
-        np.array in format [acid1, acid2, SumWeight]
+        np.array in format [Acid1, Acid2, SumWeight]
     '''
-
-    # dat = data.copy()
     pairs = np.sort(data[:,:2], axis=1)
     pairs = np.unique(pairs, axis=0)
     out = []
@@ -127,10 +145,15 @@ def make_undirected_interactions(data):
 
 def make_directed_interactions(data):
     '''
-    Consider directed interactions 
-    same as above function
+    @description 
+        Consider directed interactions, select unique pairs, 
+        Select subdata grouped by unique pair of2 acids and calculate sumWeight
+    @input
+        data - np.array, data of interactions
+    @output
+        np.array in format [Acid1, Acid2, SumWeight]
     '''
-    pairs = np.sort(data[:,:2], axis=1)
+    # pairs = np.sort(data[:,:2], axis=1) # is it important?
     pairs = np.unique(data[:,:2], axis=0)
     out = []
     for i in range(len(pairs)):
@@ -140,22 +163,11 @@ def make_directed_interactions(data):
 
 
 if __name__ == '__main__':
-    # Read all needed files 
-    # 1. terminalAtoms 2. SecondaryStructure 3. RSA 4. Net file with all interactions
-
-    pdb = sys.argv[1] # input is pdb file
-    tf = sys.argv[2] # time frame, 1btl_0.pdb
-    try:        
-        terminalAtoms = {}
-        with open('../Test_data/terminalAtoms', 'r') as terminalAtomFile:
-            for line in terminalAtomFile:
-                line = line.strip("\n").split()
-                terminalAtoms[line[0]] = [x.strip(',') for x in line[1:]]
-                
-        secStructure = np.loadtxt(re.sub('.pdb', '_secondaryStructure2', pdb), dtype=np.str)
-        rsa = np.loadtxt(re.sub('.pdb', '.rsa', pdb), dtype=np.str)
-        data_all = np.loadtxt(re.sub('.pdb', '_net', tf), dtype=np.str)
-        # data_all = np.loadtxt(re.sub('.pdb', '_net', pdb), dtype=np.str)
+    pdb = sys.argv[1] # input pdb file
+    try: 
+        secStructure = np.loadtxt(pdb.replace('.pdb', '_secondaryStructure2'), dtype=np.str)
+        rsa = np.loadtxt(pdb.replace('.pdb', '.rsa'), dtype=np.str)
+        data_all = np.loadtxt(pdb.replace('.pdb', '_net'), dtype=np.str)
     except FileNotFoundError:
         print('File not accesible')
 
@@ -165,17 +177,19 @@ if __name__ == '__main__':
     data_all[:, 1] = col1[:, 0]
     data_all = np.concatenate((data_all, col0[:, [1]]), axis=1)
     data_all = np.concatenate((data_all, col1[:, [1]]), axis=1)
-    data_all
+    # data_all must be in format ['LYS:6:A' 'ASP:9:A' 'SCSC' '10' 'SB' 'NZ' 'OD2']
+    # where columns 0,1-aminoacids; 2-chain type; 3-energy value; 4-bond type; 5,6-atoms
 
-    # Define nodes that are interacting in net file
+
+    # Define nodes (aminoacids) that are interacting in net file
     nodes = np.unique(data_all[:,0:2])
     originalNodes = nodes
 
-    # Process net file, group by common 2 interacted acids, calculate SumWeight, add terminal atoms
     basedata = process_data(data_all)
     basedata_noPP = removeRedundancy(basedata['out'])
-    # Consider only sidechain interactions w/o MC/MC
-    basedata_allsidechain = make_undirected_interactions(data_all[data_all[:,2]!='MCMC'])
+
+    # Consider only sidechain interactions w/o
+    # basedata_allsidechain = make_undirected_interactions(data_all[data_all[:,2]!='MCMC'])
 
     influencedata_all = basedata['influence_all']
     influencedata_collapse = process_data(influencedata_all)
@@ -188,7 +202,7 @@ if __name__ == '__main__':
     # Define directed network
     influencedata_directed = make_directed_interactions(influencedata_all[influencedata_all[:,7]=='1'])
     influencenet_directed = igraph.Graph().TupleList(edges=influencedata_directed[:,[1,0]], directed=True)
-    influencenet_directed_W = 1/influencedata_directed[:,2].astype(float) # change 3 to 2
+    influencenet_directed_W = 1/influencedata_directed[:,2].astype(float) 
  
     # Fill secStructure and rsa data with missing nodes
     if any(np.isin(nodes, secStructure[:,0])) == False:
@@ -202,17 +216,14 @@ if __name__ == '__main__':
 
     # Define undirected network
     net = igraph.Graph().TupleList(edges=basedata_noPP[:,:2], directed=False)
-    net_W = 1/basedata_noPP[:,2].astype(float) # change 3 to 2
+    net_W = 1/basedata_noPP[:,2].astype(float) 
 
+
+    # -------------------------WALKTRAP CLUSTERING-------------------------------------------------
     # Use Walktrap algo to define clusters for nodes and write it into net_community_vec dictionary
     net_community = net.community_walktrap(net_W, steps=4)
     cluster = net_community.as_clustering()
-
-    net_community_vec = {}
-    for name, member in zip(cluster.graph.vs['name'], cluster.membership):
-        net_community_vec[name] = member
-
-    net_community_vec_wt = net_community_vec
+    net_community_vec = {name:member for name, member in zip(cluster.graph.vs['name'], cluster.membership)}
     nodes = net.vs['name']
 
     # Network attributes calculation
@@ -231,13 +242,17 @@ if __name__ == '__main__':
                                                                                         node_modules_sidechain, 
                                                                                         method='energetics')
 
-    firstOrderDegree, firstOrderDegree_sidechain, secondOrderDegree, secondOrderDegree_sidechain = first_second_order_degree(influencenet, influencenet_directed, nodes)
+    firstOrderDegree, firstOrderDegree_sidechain, secondOrderDegree, secondOrderDegree_sidechain = first_second_order_degree(influencenet, influencenet_directed)
 
 
+    # ------------------------SecondaryStructure CLUSTERING---------------------------------------
     # Use SecondaryStructure file to define clusters for nodes
     factors = sorted(np.unique(secStructure[:,1]))
     factors_dict = {factor:num for num, factor in enumerate(factors, 1)}
     net_community_vec = {node:factors_dict[f] for node, f in zip(secStructure[:,0], secStructure[:,1])}
+
+    # Network attributes calculation
+    edge_betweenness = influencenet.edge_betweenness(weights=influencenet_W)
 
     # SECONDARY STRUCTURE network vec     
     node_edge_betweenness_stride = node_edge_btwns(influencedata, edge_betweenness, nodes, net_community_vec)
@@ -252,6 +267,7 @@ if __name__ == '__main__':
                                                                                             node_modules_sidechain,
                                                                                             method='energetics')
     
+
     nodes = influencenet.vs['name']
 
     # Create dataframes from dictionaries and merge them
@@ -329,8 +345,5 @@ if __name__ == '__main__':
     out1 = Scaling(out[out.columns[1:]])
     outZ = pd.concat([out[['AA']], out1], axis=1)
 
-
-    out.to_csv(re.sub('.pdb', '', tf)+'_scoresEnergetics', sep='\t', index=False)
-    outZ.to_csv(re.sub('.pdb', '', tf)+'_scoresEnergeticsZ', sep='\t', index=False)
-    # out.to_csv(re.sub('.pdb', '', pdb)+'_scoresEnergetics', sep='\t', index=False)
-    # outZ.to_csv(re.sub('.pdb', '', pdb)+'_scoresEnergeticsZ', sep='\t', index=False)
+    out.to_csv(re.sub('.pdb', '', pdb)+'_scoresEnergetics', sep='\t', index=False)
+    outZ.to_csv(re.sub('.pdb', '', pdb)+'_scoresEnergeticsZ', sep='\t', index=False)
