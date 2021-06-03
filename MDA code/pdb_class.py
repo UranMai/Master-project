@@ -21,7 +21,7 @@ import parameters as prs
     3. And create phi file (stride)
 '''
 
-def prepare_secondary_structure_file(PDB, phi_data):
+def prepare_secondary_structure_file(PDB, phi_file):
     '''
     @description
         phi_file contains info about type of secStructures and phi-angles for amino acids. These data defined by 'ASG' lines.
@@ -37,7 +37,7 @@ def prepare_secondary_structure_file(PDB, phi_data):
             Acid_info | Structure_type | phi_angle
             HIS26A    | Coil           | 90
     '''
-    # secStructure = open('SecondaryStructure', 'w')
+    phi_data = [line for line in open(phi_file, 'r').readlines() if 'ASG' in line]  
     secStructure = open(PDB.replace('.pdb', '_secondaryStructure2'), 'w')
 
     phi = {} 
@@ -122,7 +122,7 @@ def prepare_secondary_structure_file(PDB, phi_data):
             curentAngle=-1
     secStructure.close()
 
-def prepare_rsa_file(PDB, phi_data):
+def prepare_rsa_file(PDB, phi_file):
     '''
     @description
         Read phi file. Take solvent area values from phi file and divide by max solvent area of aminoacid
@@ -134,6 +134,7 @@ def prepare_rsa_file(PDB, phi_data):
             Acid_info | RSA_value 
             HIS26A    | 0.47      
     '''
+    phi_data = [line for line in open(phi_file, 'r').readlines() if 'ASG' in line]  
     with open(PDB.replace('.pdb','.rsa'), 'w') as rsafile:
         for line in phi_data:
             if line [5:8] in prs.area.keys():
@@ -155,7 +156,8 @@ class AminoAcid:
         self.acid = aminoacid  # mda.residue object  
         self.resname = aminoacid.resname
         self.atoms = aminoacid.atoms
-        self.res = aminoacid.resname+':'+str(aminoacid.resid)+':'+aminoacid.segid   #HIS:26:A
+        # self.res = aminoacid.resname+':'+str(aminoacid.resid)+':'+aminoacid.segid   #HIS:26:A
+        self.res = aminoacid.resname+':'+str(aminoacid.resid)+':'+self.atoms.chainIDs[0]
         self.centroid, self.normal = self.calc_centroid_normal_coords()
         self.pipi = self.PiPi()
         self.pication = self.PiCation()
@@ -1053,13 +1055,17 @@ def main(PDB, u):
               ex. 1BTL.pdb or 1BTL_3.pdb
         u - MDAnalysis Universe with topology file and (trajectory frame's coordinates) 
     '''
+    PHI = PDB.replace('pdb', 'phi')
+    prepare_secondary_structure_file(PDB, phi_file=PHI)
+    prepare_rsa_file(PDB, phi_file=PHI)
+    
     protein = u.select_atoms('protein')
     hoh = u.select_atoms('resname HOH or resname SOL')
     metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
     ligands = u.select_atoms('not protein and not resname HOH and not resname SOL') - metalls
 
     prot = protein.atoms 
-    prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.segids, prot.names
+    prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.chainIDs, prot.names # chainIDs vs segids
     allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
 
     allatoms_data = {} # define dict of protein atoms' coords and chain types
@@ -1114,7 +1120,7 @@ def main(PDB, u):
     cmd = f"cat {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal > {pdb}_net"
     os.system(cmd)
 
-    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.segids)]
+    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.chainIDs)] # chainIDs vs segids
     ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='residues')))
 
     # CENTROIDS
@@ -1122,7 +1128,7 @@ def main(PDB, u):
     centroid_data = u.select_atoms('protein and not resname DG DC DT DA and not backbone or (resname GLY and not name N C O)') 
     center_coords = centroid_data.center(centroid_data.masses, compound='residues')
     centroid = centroid_data.residues
-    centroid_names = [i+':'+str(j)+':'+k for i, j, k in zip(centroid.resnames, centroid.resids, centroid.segids)]
+    centroid_names = [i+':'+str(j)+':'+k[0] for i, j, k in zip(centroid.resnames, centroid.resids, centroid.chainIDs)] # chainIDs vs segids. here chainIDs for residues -> take k[0]
     protein_centroids = dict(zip(centroid_names, center_coords))
     
     find_ligand_atom_bonds_new(ligand_centroids, allatoms_data, PDB)
@@ -1142,33 +1148,21 @@ def main(PDB, u):
 
 if __name__ == '__main__':
     t0 = time.time()
-    # PDB = sys.argv[1] # input file.pdb
-    # PHI = PDB.replace('.pdb', '.phi')
-
-    # TEST definition
     PDB = sys.argv[1]
-    # PDB = '../Test_data/1BTL.pdb'   #sys.argv[1]
-    # PHI = '../Test_data/1BTL.phi'   #sys.argv[2]
-
-    os.system(f"stride {PDB} > {PDB.replace('pdb', 'phi')}") # stride must be in usr/local/bin
     PHI = PDB.replace('pdb', 'phi')
 
+    os.system(f"stride {PDB} > {PHI}") # stride must be in usr/local/bin
+
     if os.path.exists(PDB) and os.path.exists(PHI):
-        phifile = open(PHI, 'r').readlines()
-        phi_data = [line for line in phifile if 'ASG' in line] 
         print('PDB and PHI files are ready')
     else:
         print('Point appropriate PDB and PHI files')
         exit()
-    
-    prepare_secondary_structure_file(PDB, phi_data)
-
-    prepare_rsa_file(PDB, phi_data)
 
     u = mda.Universe(PDB)
     main(PDB, u)
 
-
+    print(time.time()-t0)
 
     ### OUTPUT FILES
     # 1BTL_secondaryStructure2      [HIS:26:A    CoilA1  0]
