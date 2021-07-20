@@ -13,6 +13,8 @@ import MDAnalysis.lib.mdamath as MDAmath
 import time
 import parameters as prs 
 
+# INCLUDE POLYPEPTIDE PAIRS, add PP1, PP2 for proper work of energetics, centroid scriptss
+
 # TODO: make preprocessing script + installation readme
 '''
     Before need to preprocess pdb file
@@ -38,7 +40,7 @@ def prepare_secondary_structure_file(PDB, phi_file):
             HIS26A    | Coil           | 90
     '''
     phi_data = [line for line in open(phi_file, 'r').readlines() if 'ASG' in line]  
-    secStructure = open(PDB.replace('.pdb', '_secondaryStructure2'), 'w')
+    secStructure = open(PDB.replace('.pdb', '_secondaryStructure'), 'w')
 
     phi = {} 
     counter = 0
@@ -116,10 +118,86 @@ def prepare_secondary_structure_file(PDB, phi_file):
             currentSecStructure = secStruct
         else:
             # secStructure.write(res+resid+segid+"\t"+secStruct+str(counter)+"\t"+str(phi_angle)+"\n")
-            secStructure.write(res+':'+resid+':'+segid+'\t'+secStruct+str(counter)+'\t'+str(phiangle)+'\n')
+            secStructure.write(res+':'+resid+':'+segid+'\t'+secStruct+str(counter)+'\t'+str(line[42:51].strip())+'\n')
         currentAngle = phi_angle
         if currentAngle==prs.FULL_ANGLE:
             curentAngle=-1
+    secStructure.close()
+
+def prepare_secondary_structure_file1(PDB, phi_file):
+    # phi = {}
+
+    # phi_data = [line for line in open(phi_file, 'r').readlines() if 'ASG' in line]  
+    # secStructure = open(PDB.replace('.pdb', '_secondaryStructure'), 'w')
+    phi = {}
+    phifile = open(re.sub(".pdb","",PDB)+".phi",'r').readlines()
+    secStructure = open(PDB.replace(".pdb","")+"_secondaryStructure",'w')
+
+    counter = 0
+    currentSecStructure = ""
+    for line in phifile:
+        if line[0:3]=="ASG":
+            prevStruct = line[33:42].strip()
+            break
+    if prevStruct == "Coil" or prevStruct == "Bridge":
+        prevStruct = "CoilA"
+    if prevStruct == "Turn":
+        prevStruct = "TurnA"
+
+    currentAngle = -1
+
+    for i in range(len(phifile)):
+        line = phifile[i]
+        if line[0:3]=="ASG":
+            if line[12:15].strip()[-1] in string.ascii_uppercase:
+                continue
+            phi[line[5:8]+line[11:15].strip()+line[9]] = line[42:50].strip()
+            secStruct = line[33:42].strip()
+            if line[5:8] == "PRO" and line[33:42].strip() == "aHelix":
+                if i+1 != len(phifile) and phifile[i+1][33:42].strip() != "aHelix":
+                    secStruct = phifile[i+1][33:42].strip()
+            if secStruct=="Bridge" or secStruct=="Coil":
+                if (float(line[42:51]) > 0 and currentAngle < 0 and float(line[42:51])!=360) or (float(line[42:51]) < 0 and currentAngle < 0) or (float(line[42:51])==360 and currentAngle < 0):
+                    if prevStruct == "CoilA":
+                        secStruct="CoilA"; prevStruct = "CoilA"
+                    else:
+                        secStruct="CoilB"; prevStruct = "CoilB"
+                elif (float(line[42:51]) < 0 and currentAngle > 0) or (float(line[42:51]) > 0 and currentAngle > 0 and float(line[42:51])!=360) or (float(line[42:51])==360 and currentAngle > 0):
+                    if prevStruct == "CoilA":
+                        secStruct="CoilB"; prevStruct = "CoilB"
+                    else:
+                        secStruct="CoilA"; prevStruct = "CoilA"
+            if secStruct=="Turn":
+                if (float(line[42:51]) > 0 and currentAngle < 0 and float(line[42:51])!=360) or (float(line[42:51]) < 0 and currentAngle < 0) or (float(line[42:51])==360 and currentAngle < 0):
+                    if prevStruct == "TurnA":
+                        secStruct="TurnA"; prevStruct = "TurnA"
+                    else:
+                        secStruct="TurnB"; prevStruct = "TurnB"
+                elif (float(line[42:51]) < 0 and currentAngle > 0) or (float(line[42:51]) > 0 and currentAngle > 0 and float(line[42:51])!=360) or (float(line[42:51])==360 and currentAngle > 0):
+                    if prevStruct == "TurnA":
+                        secStruct="TurnB"; prevStruct = "TurnB"
+                    else:
+                        secStruct="TurnA"; prevStruct = "TurnA"
+            if ("Coil" in secStruct or "Turn" in secStruct) and (line[5:8]=="GLY" and float(line[42:51]) > 0 and float(line[42:51])!=360):
+                phiangle = line[42:51].strip()
+                if float(phiangle)==360:
+                    phiangle=0
+                # secStructure.write(res+':'+resid+':'+segid+'\t'+secStruct+str(counter)+'\t'+str(phiangle)+'\n')
+                secStructure.write(line[5:8]+':'+line[11:15].lstrip()+':'+line[9]+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
+                currentSecStructure = secStruct                
+                counter+=1
+            elif secStruct != currentSecStructure:
+                counter+=1
+                phiangle = line[42:51].strip()
+                if float(phiangle)==360:
+                    phiangle=0
+                secStructure.write(line[5:8]+':'+line[11:15].lstrip()+':'+line[9]+"\t"+secStruct+str(counter)+"\t"+str(phiangle)+"\n")
+                currentSecStructure = secStruct
+            else:
+                secStructure.write(line[5:8]+':'+line[11:15].lstrip()+':'+line[9]+"\t"+secStruct+str(counter)+"\t"+line[42:51].strip()+"\n")
+            currentAngle = float(line[42:51])
+            if currentAngle==360:
+                curentAngle=-1
     secStructure.close()
 
 def prepare_rsa_file(PDB, phi_file):
@@ -373,6 +451,8 @@ def find_salt_bridges(res1, res2):
             dist = MDdist3D(coords1[i], coords2[j])
             if dist < prs.SALT_DISTANCE:
                 saltBridges.append(res1_name[i]+'\t'+res2_name[j])
+                # out.append(':'.join(res1_name[i].split(':')[:2])+':'+prs.rplcAtom(res1_name[i].split(':')[3])+'\t'+
+                    # ':'.join(res2_name[j].split(':')[:2])+':'+prs.rplcAtom(res2_name[j].split(':')[3])+'\tSCSC'+prs.SALT_CONST+'SB\t'+'\n')
                 out.append(res1_name[i]+'\t'+res2_name[j]+'\tSCSC'+prs.SALT_CONST+'SB\t'+'\n')
     return list(set(out))
 
@@ -491,17 +571,17 @@ def find_hydrogen_bonds(PDB, u, segids, allatoms_data, saltBridges):
                 a = AA_coords - allatoms_data[acceptor]['coords']
                 b = allatoms_data[hydrogen]['coords'] - allatoms_data[acceptor]['coords']
                 beta = np.degrees(mda.lib.mdamath.angle(a, b))
-                beta = prs.STRAIGHT_ANGLE-beta if beta<prs.RIGHT_ANGLE else beta
+                # beta = prs.STRAIGHT_ANGLE-beta if beta<prs.RIGHT_ANGLE else beta
 
                 # Define gamma angle b/w AA-acceptor-donor
                 a = AA_coords - allatoms_data[acceptor]['coords']
                 b = allatoms_data[donor]['coords'] - allatoms_data[acceptor]['coords']
                 gamma = np.degrees(mda.lib.mdamath.angle(a, b)) 
 
-                if [(prs.hydrogen[dH]!='S' and hbond[8]!='S' and d1 < prs.hb_d1 and d2 < prs.hb_d2 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
+                if ((prs.hydrogen[dH]!='S' and hbond[8]!='S' and d1 < prs.hb_d1 and d2 < prs.hb_d2 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
                     (prs.hydrogen[dH]=='S' and hbond[8]!='S' and d1 < prs.hb_d1 and d2 < prs.hb_d2 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
                     (prs.hydrogen[dH]!='S' and hbond[8]=='S' and d1 < prs.hb_d11 and d2 < prs.hb_d21 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
-                    (prs.hydrogen[dH]=='S' and hbond[8]=='S' and d1 < prs.hb_d12 and d2 < prs.hb_d22 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE)]:
+                    (prs.hydrogen[dH]=='S' and hbond[8]=='S' and d1 < prs.hb_d12 and d2 < prs.hb_d22 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE)):
                     
                     if acceptor not in acceptorBonds.keys():
                         acceptorBonds[acceptor] = []
@@ -760,8 +840,8 @@ def find_metal_bonds(metalls, acids_class, allatoms_data, PDB):
         for i in range(len(metal2atom)):
             for j in range(i+1, len(metal2atom)):
                 atom1, atom2 = metal2atom[i], metal2atom[j]
-                atom_1 = atom1.resname+':'+str(atom1.resid)+':'+atom1.segid+':'+atom1.name
-                atom_2 = atom2.resname+':'+str(atom2.resid)+':'+atom2.segid+':'+atom2.name
+                atom_1 = atom1.resname+':'+str(atom1.resid)+':'+atom1.chainID+':'+atom1.name
+                atom_2 = atom2.resname+':'+str(atom2.resid)+':'+atom2.chainID+':'+atom2.name
                 atom1_pos = atom1.position
                 atom2_pos = atom2.position
                 coords1 = met_pos - atom1_pos
@@ -777,7 +857,7 @@ def find_metal_bonds(metalls, acids_class, allatoms_data, PDB):
                                     #   metall+'\t'+str(angle))
     
     with open(PDB.replace('.pdb', '_metal'), 'a') as out:
-        for bond in metalBonds:
+        for bond in list(set(metalBonds)):
             out.write(bond)                
             
 
@@ -972,28 +1052,31 @@ def find_centroid_ligand_bonds(protein_centroids, ligand_centroids, PDB):
                 # out.write(''.join(centroid.split(':'))+'\t'+''.join((distances[centroid]['ligand']).split(':'))+'\t'+str(distances[centroid]['dist'])+'\n')
 
 def find_peptide_pairs(protein, PDB):
-	'''
- 	@description
-		Find peptide pairs b/w two successive residues in aminoacid sequence
+    '''
+    @description
+        Find peptide pairs b/w two successive residues in aminoacid sequence
 
- 	@input
-		protein - MDAnalysis object, select_atoms('protein')
-	    PDB file, ex. 4eiy.pdb
-	''' 
-	residues = protein.residues
-	with open(PDB.replace('.pdb', '_polypeptidePairs'), 'w') as out:
-	    for i in range(protein.n_residues - 1):
-	    	if residues[i].resid == residues[i+1].resid - 1:
-	    		out.write(residues[i].resname+':'+str(residues[i].resid)+':'+residues[i].segid+'\t'+
-	    			residues[i+1].resname+':'+str(residues[i+1].resid)+':'+residues[i+1].segid+'\tMCMC\t10\tPP\n')
+    @input
+        protein - MDAnalysis object, select_atoms('protein')
+        PDB file, ex. 4eiy.pdb
+    ''' 
+    residues = protein.residues
+    with open(PDB.replace('.pdb', '_polypeptidePairs'), 'w') as out:
+        for i in range(protein.n_residues - 1):
+            segid1 = residues[i].atoms.chainIDs[0]
+            segid2 = residues[i+1].atoms.chainIDs[0]
+            # when separate trajectory to pdb files, in new created pdbs Residue objects dont contain chainIDs, so select from atoms
+            if residues[i].resid == residues[i+1].resid - 1:
+                out.write(residues[i].resname+':'+str(residues[i].resid)+':'+segid1+':PP1'+'\t'+
+                    residues[i+1].resname+':'+str(residues[i+1].resid)+':'+segid2+':PP2'+'\tMCMC\t10\tPP\n')
 
 def prepare_bfactor_file(protein):
     '''
     @description
-    	Select "CA" atoms of residues and extract B-factor(tempfactor)
-    	And write to file ("Bfactor") in format
-		Acid     | B-factor
-		HIS:26:A | 14.48
+        Select "CA" atoms of residues and extract B-factor(tempfactor)
+        And write to file ("Bfactor") in format
+        Acid     | B-factor
+        HIS:26:A | 14.48
     @input 
         protein - MDAnalysis object, select_atoms('protein')
     '''
@@ -1044,6 +1127,214 @@ def select_vdw_bonds(vdw_file): #1BTL_vdw file
             else:
                 out.write(line.replace('\n', '\t')+'\n')
 
+def find_hydrogen_bonds_new(PDB, u, segids, allatoms_data, saltBridges):
+    from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis as HBA
+
+    hbonds = HBA(universe=u, 
+                #  donors_sel='resname HOH and name O H1 H2',
+                #  hydrogens_sel='resname HOH and name O H1 H2',
+                #  acceptors_sel='resname HOH and name O H1 H2', 
+                #  donors_sel='name {}'.format(' '.join(h.donors)), 
+                #  hydrogens_sel='name H*',
+                #  acceptors_sel='name {}'.format(' '.join(h.acceptors)),
+                donors_sel='all and name N* O*',
+                hydrogens_sel='all and name H*',
+                acceptors_sel='all and name N* O*',
+                d_h_a_angle_cutoff=90, 
+                d_h_cutoff=1.2,
+                d_a_cutoff=3.5,
+                )
+    hbonds.run()
+    tmp = []
+    hydrogenBonds = []
+    acceptorBonds = {}
+    for hbond in hbonds.hbonds:
+        d, h, a, d_a_dist, d_h_a_angle = hbond[1:] #d_h_a_angle, return indexes of atoms from u.atoms
+        d, h, a = u.atoms[int(d)], u.atoms[int(h)], u.atoms[int(a)]
+        # Whether use segid obj or segids dict based on indexes
+        donor = ':'.join([d.resname, str(d.resid), d.segid, d.name])
+        hydrogen = ':'.join([h.resname, str(h.resid), h.segid, h.name])
+        acceptor = ':'.join([a.resname, str(a.resid), a.segid, a.name])
+        acc_res, acc_name = a.resname, a.name
+        dA = ':'.join([a.resname, a.name])
+        dH = ':'.join([h.resname, h.name])
+        if dH not in prs.hydrogen:
+            continue
+        if not prs.isDonor(donor):
+            continue
+        if (donor+'\t'+acceptor) in saltBridges or (acceptor+'\t'+donor) in saltBridges: # no bonds from salt bridges
+            continue
+
+        if np.abs(h.resid - a.resid) > prs.seq_dist_cutoff:
+            if (dA in prs.nextAcid) and prs.isAcceptor(acceptor):
+                alpha = d_h_a_angle
+                d2 = d_a_dist
+                d1 = MDdist3D(h.position, a.position)
+                if d1 > prs.H_A_dist_cutoff or d2 > prs.D_A_dist_cutoff: 
+                    continue
+                aNext = prs.nextAcid[dA]
+                if len(aNext)==2: 
+                    neighbor1 = ":".join(acceptor.split(":")[0:3])+":"+aNext[0]
+                    neighbor2 = ":".join(acceptor.split(":")[0:3])+":"+aNext[1]
+                    AA_coords = (allatoms_data[neighbor1]['coords']+allatoms_data[neighbor2]['coords'])/2
+                else:
+                    neighbor1 = ":".join(acceptor.split(":")[0:3])+":"+aNext[0]
+                    AA_coords = allatoms_data[neighbor1]['coords']
+                
+                a = AA_coords - allatoms_data[acceptor]['coords']
+                b = allatoms_data[hydrogen]['coords'] - allatoms_data[acceptor]['coords']
+                beta = np.degrees(mda.lib.mdamath.angle(a, b))
+
+                a = AA_coords - allatoms_data[acceptor]['coords']
+                b = allatoms_data[donor]['coords'] - allatoms_data[acceptor]['coords']
+                gamma = np.degrees(mda.lib.mdamath.angle(a, b)) 
+
+                if ((prs.hydrogen[dH]!='S' and acc_name!='S' and d1 < prs.hb_d1 and d2 < prs.hb_d2 and alpha > 90 and beta > 90 and gamma > 90) or
+                    (prs.hydrogen[dH]=='S' and acc_name!='S' and d1 < prs.hb_d1 and d2 < prs.hb_d2 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
+                    (prs.hydrogen[dH]!='S' and acc_name=='S' and d1 < prs.hb_d11 and d2 < prs.hb_d21 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE) or
+                    (prs.hydrogen[dH]=='S' and acc_name=='S' and d1 < prs.hb_d12 and d2 < prs.hb_d22 and alpha > prs.RIGHT_ANGLE and beta > prs.RIGHT_ANGLE and gamma > prs.RIGHT_ANGLE)):
+                    
+                    if acceptor not in acceptorBonds.keys():
+                        acceptorBonds[acceptor] = []
+                    if acceptor.split(':')[3] in prs.acceptor_atoms1:
+                        acceptorBonds[acceptor].append(d1)
+                        if len(acceptorBonds[acceptor]) > 2:
+                            acceptorBonds[acceptor].sort()
+                            acceptorBonds[acceptor] = acceptorBonds[acceptor][0:2]
+                    if acceptor.split(':')[3] in prs.acceptor_atoms2 and acceptor.split(':')[0]!="HOH": 
+                        acceptorBonds[acceptor].append(d1)
+                        if len(acceptorBonds[acceptor]) > 1:
+                            acceptorBonds[acceptor].sort()
+                            acceptorBonds[acceptor] = acceptorBonds[acceptor][0:1] 
+                    if acceptor.split(':')[3] == "O" and acceptor.split(':')[0]=="HOH":
+                        acceptorBonds[acceptor].append(d1)
+                    # beta = prs.STRAIGHT_ANGLE-beta if beta<prs.RIGHT_ANGLE else beta
+
+                    if prs.SPHyb(donor)=="SP3" and prs.SPHyb(acceptor)=="SP3":
+                        E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP3', sphyb2='SP3', alpha=alpha, beta=beta) 
+
+                    elif prs.SPHyb(donor)=="SP3" and prs.SPHyb(acceptor)=="SP2":
+                        E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP3', sphyb2='SP2', alpha=alpha, beta=beta)
+
+                    elif prs.SPHyb(donor)=="SP2" and prs.SPHyb(acceptor)=="SP3":
+                        E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP2', sphyb2='SP3', alpha=alpha, beta=beta)
+
+                    elif prs.SPHyb(donor)=="SP2" and prs.SPHyb(acceptor)=="SP2":
+                        normalVecDonor = prs.normalDonorVecToPlane(donor, allatoms_data)
+                        if normalVecDonor is None:
+                            continue
+                        normalVecAcceptor = prs.normalAcceptorVecToPlane(acceptor, allatoms_data)
+                        if normalVecAcceptor is None:
+                            continue
+                        psi = np.degrees(mda.lib.mdamath.angle(normalVecDonor,normalVecAcceptor))
+                        E = prs.HydrogenBondEnergy(dist=d2, sphyb1='SP2', sphyb2='SP2', alpha=alpha, beta=beta, psi=psi)
+
+                    hydrogenBonds.append(hydrogen+'\t'+acceptor+'\t'+donor+'\t'+allatoms_data[donor]['chain']+allatoms_data[acceptor]['chain']+'\t'+str(d1)+'\t'+str(E))
+
+    out = open(PDB.replace('.pdb','_hb1'), 'w')
+    finalHydrogenBonds = []
+    donorBonds = {}
+    for interaction in hydrogenBonds:
+        hydrogen, acceptor, donor, chain, d1, E  = interaction.split("\t")[0:6] 
+        bond = hydrogen+'\t'+acceptor+'\t'+chain+'\t'+E+'\tHB\t\n'
+
+        if donor not in donorBonds:
+            donorBonds[donor] = 0
+        if donor.split(':')[0]=="HOH" or acceptor.split(':')[0]=="HOH":
+            out.write(bond)
+
+        if len(acceptorBonds[acceptor])==2 and (d1==str(acceptorBonds[acceptor][0]) or d1==str(acceptorBonds[acceptor][1])):
+            if donor.split(':')[3] not in (prs.donor_atoms1+prs.donor_atoms2) and donorBonds[donor]==0:
+                out.write(bond)
+                donorBonds[donor]+=1
+            elif donor.split(':')[3] in prs.donor_atoms1 and donorBonds[donor] < 2:
+                out.write(bond)
+                donorBonds[donor]+=1
+            elif donor.split(':')[3] in prs.donor_atoms2 and donorBonds[donor] < 3:
+                out.write(bond)
+                donorBonds[donor]+=1
+        elif d1 == str(acceptorBonds[acceptor][0]):
+            if donor.split(':')[3] not in (prs.donor_atoms1+prs.donor_atoms2) and donorBonds[donor]==0:
+                out.write(bond)
+                donorBonds[donor]+=1
+            elif donor.split(':')[3] in prs.donor_atoms1 and donorBonds[donor] < 2:
+                out.write(bond)
+                donorBonds[donor]+=1
+            elif donor.split(':')[3] in prs.donor_atoms2 and donorBonds[donor] < 3:
+                out.write(bond)
+                donorBonds[donor]+=1
+            elif donor.split(':')[3] in ["0"]:
+                out.write(bond)
+    out.close() 
+
+def find_waterbonds(hb_file, allatoms_data):
+    hb_file = open(hb_file, 'r').readlines()
+    HOH = {}
+    HOH2 = {}
+    HOH_energy = {}
+
+    for line in hb_file:
+        line = line.split('\t')
+        if 'HOH' in line[0] and 'HOH' not in line[1]:
+            water = ':'.join(line[0].split(':')[:3])
+            if water not in HOH:
+                HOH[water] = []
+            if (line[1], water) not in HOH_energy:
+                HOH_energy[line[1], water] = []
+            HOH[water].append(line[1])
+            HOH[water] = list(set(HOH[water]))
+            HOH_energy[line[1], water].append(float(line[3]))
+            HOH_energy[line[1], water] = list(set(HOH_energy[line[1], water]))
+
+        if 'HOH' in line[1] and 'HOH' not in line[0]:
+            water = ':'.join(line[1].split(':')[:3])
+            if not water in HOH:
+                HOH[water] = []
+            if (line[0], water) not in HOH_energy:
+                HOH_energy[line[0], water] = []
+            HOH[water].append(line[0])
+            HOH[water] = list(set(HOH[water]))
+            HOH_energy[line[0], water].append(float(line[3]))
+            HOH_energy[line[0], water] = list(set(HOH_energy[line[0], water]))
+
+        if 'HOH' in line[0] and 'HOH' in line[1]:
+            water1 = ':'.join(line[0].split(':')[:3])
+            water2 = ':'.join(line[1].split(':')[:3])
+            if water1 not in HOH2:
+                HOH2[water1] = []
+            if water2 not in HOH2:
+                HOH2[water2] = []
+            # if (water1, water2) not in HOH2_energy:
+                # HOH2_energy[water1, water2] = []
+
+            HOH2[water1].append(water2)
+            HOH2[water2].append(water1)
+            HOH2[water1] = list(set(HOH2[water1]))
+            HOH2[water2] = list(set(HOH2[water2]))
+
+    import itertools
+    with open('waterbonds', 'w') as out:
+        for water in HOH:
+            if len(HOH[water]) > 1:
+                x = list(itertools.combinations(HOH[water], 2))
+                for item in x:
+                    if item[0].split(':')[:3] != item[1].split(':')[:3]:
+                        energy = sum([*HOH_energy[item[0], water], *HOH_energy[item[1], water]])/2
+                        out.write(item[0]+'\t'+item[1]+'\t'+allatoms_data[item[0]]['chain']+allatoms_data[item[1]]['chain']+'\t'+
+                            str(energy) + '\t'+water+'\n')
+                    
+    with open('waterbonds', 'a') as out:
+        for water1 in HOH:
+            for atom1 in HOH[water1]:
+                if water1 in HOH2:
+                    for water2 in HOH2[water1]:
+                        if water2 in HOH:
+                            for atom2 in HOH[water2]:
+                                if atom1 != atom2 and atom1.split(':')[:3] != atom2.split(':')[:3]:
+                                    energy = sum([*HOH_energy[atom1, water1], *HOH_energy[atom2, water2]])/2
+                                    out.write(atom1+'\t'+atom2+'\t'+allatoms_data[atom1]['chain']+
+                                              allatoms_data[atom2]['chain']+'\t'+str(energy)+'\t'+water1+'\t'+water2+'\n')
+
 
 def main(PDB, u):
     '''
@@ -1056,15 +1347,16 @@ def main(PDB, u):
         u - MDAnalysis Universe with topology file and (trajectory frame's coordinates) 
     '''
     PHI = PDB.replace('pdb', 'phi')
-    prepare_secondary_structure_file(PDB, phi_file=PHI)
+    # prepare_secondary_structure_file(PDB, phi_file=PHI)
+    prepare_secondary_structure_file1(PDB, phi_file=PHI)
     prepare_rsa_file(PDB, phi_file=PHI)
     
-    protein = u.select_atoms('protein')
+    protein = u.select_atoms('protein and not name OXT')
     hoh = u.select_atoms('resname HOH or resname SOL')
     metalls = u.select_atoms('resname {}'.format(' '.join(list(prs.metals))))
     ligands = u.select_atoms('not protein and not resname HOH and not resname SOL') - metalls
 
-    prot = protein.atoms 
+    prot = u.atoms # protein.atoms 
     prot_resnames, prot_resids, prot_segids, prot_atoms = prot.resnames, prot.resids, prot.chainIDs, prot.names # chainIDs vs segids
     allatoms = [(i+':'+str(j)+':'+k+':'+l) for i, j, k, l in zip(prot_resnames, prot_resids, prot_segids, prot_atoms)] # format 'HIS:26:A:N'
 
@@ -1083,6 +1375,7 @@ def main(PDB, u):
 
     acids_class = [AminoAcid(res) for res in prot.residues]
 
+    print('Create acids Classes')
     # WRITING INTERACTIONS
     # saltBridges = []
     with open(PDB.replace('.pdb', '_bonds'), 'w') as net:
@@ -1104,10 +1397,15 @@ def main(PDB, u):
                     for bond in bonds:
                         net.write(bond)
 
-    find_hydrogen_bonds(PDB, u, prot_segids, allatoms_data, saltBridges)
+    print('FIND COMMON BONDS')
+    # find_hydrogen_bonds(PDB, u, prot_segids, allatoms_data, saltBridges)
+    find_hydrogen_bonds_new(PDB, u, prot_segids, allatoms_data, saltBridges)
+    find_waterbonds(PDB.replace('.pdb', '_hb1'), allatoms_data)
+    # cmd = '''awk '{split($1,x,":");split($2,y,":");if(x[1]x[2]!=y[1]y[2]){print}}' "waterbonds" > "1btl_waterbonds"'''
 
     # find_vdw_bonds(PDB, prot, prot_resnames, prot_resids, prot_segids, prot_atoms, coords, chain) # old version
-    find_vdw_bonds(PDB, prot, allatoms, allatoms_data)
+    # find_vdw_bonds(PDB, prot, allatoms, allatoms_data)
+    find_vdw_bonds(PDB, protein.atoms, allatoms, allatoms_data)
     # find_VanderWaals_bonds(PDB, prot, allatoms, allatoms_data) # new version
     # select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals'))
     # select_vdw_bonds(PDB.replace('.pdb', '_VanderWaals2'))
@@ -1116,11 +1414,17 @@ def main(PDB, u):
 
     find_metal_bonds(metalls, acids_class, allatoms_data, PDB) 
     # find_dna_bonds(u, allatoms_data)
+    find_peptide_pairs(protein.atoms, PDB)
+
+    print('FIND HB and VDW')
     pdb = PDB.replace('.pdb', '')
-    cmd = f"cat {pdb}_bonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal > {pdb}_net"
+    print(pdb)
+    cmd = f"cat {pdb}_bonds waterbonds {pdb}_hb {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal {pdb}_polypeptidePairs > {pdb}_net"
+    os.system(cmd)
+    cmd = f"cat {pdb}_hb1 | sed /HOH/d >>{pdb}_net"
     os.system(cmd)
 
-    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.chainIDs)] # chainIDs vs segids
+    ligand_names = [i+':'+str(j)+':'+k for i, j, k in zip(ligands.residues.resnames, ligands.residues.resids, ligands.residues.chainIDs[0])] # chainIDs vs segids
     ligand_centroids = dict(zip(ligand_names, ligands.center_of_geometry(compound='residues')))
 
     # CENTROIDS
@@ -1141,10 +1445,14 @@ def main(PDB, u):
     # prepare_bfactor_file(protein)
     
     # Delete Files
-    cmd = f"rm -rf {pdb}_bonds {pdb}_hb {pdb}_vdw {pdb}_vdw2 {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal"
+    # cmd = f"rm -rf {pdb}_bonds {pdb}_hb {pdb}_vdw {pdb}_vdw2 {pdb}_vdw_noRepulse {pdb}_vdw2_noRepulse {pdb}_metal {pdb}_polypeptidePairs"
+    # os.system(cmd)
+
+    # Choose positive energized bonds
+    cmd = f"awk '$4>0' {pdb}_net > {pdb}tmp"
     os.system(cmd)
-
-
+    cmd = f"mv {pdb}tmp {pdb}_net"
+    os.system(cmd)
 
 if __name__ == '__main__':
     t0 = time.time()
